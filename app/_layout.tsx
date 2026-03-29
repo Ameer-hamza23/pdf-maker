@@ -1,24 +1,30 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
+import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import * as SystemUI from "expo-system-ui";
+import { useEffect } from "react";
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+import { EditImagesProvider } from "@/src/context/edit-images-context";
+import { electricCuratorTheme } from "@/src/theme/electric-curator";
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  useEffect(() => {
+    void SystemUI.setBackgroundColorAsync(electricCuratorTheme.colors.surface);
+  }, []);
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <EditImagesProvider>
+      <StatusBar
+        style="dark"
+        backgroundColor={electricCuratorTheme.colors.surface}
+      />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: {
+            backgroundColor: electricCuratorTheme.colors.surface,
+          },
+        }}
+      />
+    </EditImagesProvider>
   );
 }
