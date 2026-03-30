@@ -19,6 +19,7 @@ export type EditableImage = {
 
 type EditImagesContextType = {
   images: EditableImage[];
+  batchImages: EditableImage[];
   currentIndex: number;
   addImages: (uris: string[]) => void;
   setCurrentIndex: (index: number) => void;
@@ -26,6 +27,8 @@ type EditImagesContextType = {
   removeImage: (id: string) => void;
   clearImages: () => void;
   setImages: (images: EditableImage[]) => void;
+  commitBatchImages: (batch: EditableImage[]) => void;
+  clearBatchImages: () => void;
 };
 
 const EditImagesContext = createContext<EditImagesContextType | undefined>(
@@ -38,10 +41,11 @@ export function EditImagesProvider({
   children: React.ReactNode;
 }) {
   const [images, setImagesState] = useState<EditableImage[]>([]);
+  const [batchImages, setBatchImagesState] = useState<EditableImage[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
 
   const addImages = (uris: string[]) => {
-    const newImages = uris.map((uri) => ({
+    const newBatch = uris.map((uri) => ({
       id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
       uri,
       rotation: 0,
@@ -49,15 +53,15 @@ export function EditImagesProvider({
       crop: { top: 0, left: 0, right: 0, bottom: 0 },
       key: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
     }));
-    setImagesState((prev) => [...prev, ...newImages]);
-    if (images.length === 0 && newImages.length > 0) setCurrentIndex(0);
+    setBatchImagesState(newBatch);
+    setCurrentIndex(0);
   };
 
   const updateImage = (
     id: string,
     patch: Partial<Omit<EditableImage, "id">>,
   ) => {
-    setImagesState((prev) =>
+    setBatchImagesState((prev) =>
       prev.map((image) => (image.id === id ? { ...image, ...patch } : image)),
     );
   };
@@ -66,8 +70,19 @@ export function EditImagesProvider({
     setImagesState(newImages);
   };
 
+  const commitBatchImages = (batch: EditableImage[]) => {
+    setImagesState((prev) => [...prev, ...batch]);
+    setBatchImagesState([]);
+    setCurrentIndex(0);
+  };
+
+  const clearBatchImages = () => {
+    setBatchImagesState([]);
+    setCurrentIndex(0);
+  };
+
   const removeImage = (id: string) => {
-    setImagesState((prev) => {
+    setBatchImagesState((prev) => {
       const next = prev.filter((image) => image.id !== id);
       setCurrentIndex((current) => {
         if (next.length === 0) return 0;
@@ -81,6 +96,7 @@ export function EditImagesProvider({
 
   const clearImages = () => {
     setImagesState([]);
+    setBatchImagesState([]);
     setCurrentIndex(0);
   };
 
@@ -88,6 +104,7 @@ export function EditImagesProvider({
     <EditImagesContext.Provider
       value={{
         images,
+        batchImages,
         currentIndex,
         addImages,
         setCurrentIndex,
@@ -95,6 +112,8 @@ export function EditImagesProvider({
         removeImage,
         clearImages,
         setImages,
+        commitBatchImages,
+        clearBatchImages,
       }}
     >
       {children}

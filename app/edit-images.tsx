@@ -14,7 +14,10 @@ import {
   View,
 } from "react-native";
 
-import { useEditImages } from "@/src/context/edit-images-context";
+import {
+  EditableImage,
+  useEditImages,
+} from "@/src/context/edit-images-context";
 import { electricCuratorTheme } from "@/src/theme/electric-curator";
 
 const { colors, spacing, radius, typography } = electricCuratorTheme;
@@ -34,19 +37,26 @@ type HandleType =
 
 export default function EditImagesPage() {
   const router = useRouter();
-  const { images, currentIndex, setCurrentIndex, updateImage, removeImage } =
-    useEditImages();
+  const {
+    batchImages,
+    currentIndex,
+    setCurrentIndex,
+    updateImage,
+    removeImage,
+    commitBatchImages,
+  } = useEditImages();
 
   const [mode, setMode] = useState<Mode>("crop");
   const [previewLayout, setPreviewLayout] = useState({ width: 0, height: 0 });
   const [imgSize, setImgSize] = useState({ width: 1, height: 1 });
   const [isProcessing, setIsProcessing] = useState(false);
+  const skipScanRedirect = useRef(false);
   const dragStartCrop = useRef({ top: 0, left: 0, right: 0, bottom: 0 });
 
-  const currentImage = images[currentIndex];
+  const currentImage = batchImages[currentIndex];
 
   useEffect(() => {
-    if (!currentImage) {
+    if (!currentImage && !skipScanRedirect.current) {
       router.replace("/scan");
     }
   }, [currentImage, router]);
@@ -263,10 +273,10 @@ export default function EditImagesPage() {
 
   const processAndContinue = async () => {
     setIsProcessing(true);
-    for (const img of images) {
-      // Find the visual rect params that were used for THIS image.
-      // Since calculating layout for all here is tough, we approximate back to actual image resolution
-      // by fetching dimensions if not cached, but let's just use a simple ratio.
+    skipScanRedirect.current = true;
+    const processedBatch: EditableImage[] = [];
+
+    for (const img of batchImages) {
       const dims = await new Promise<{ width: number; height: number }>(
         (resolve, reject) => {
           Image.getSize(
@@ -277,7 +287,6 @@ export default function EditImagesPage() {
         },
       );
 
-      // Determine visual size using previewLayout assuming layout didn't change wildly
       const imgAspect = dims.width / dims.height;
       const containerAspect = previewLayout.width / previewLayout.height;
 
@@ -292,19 +301,18 @@ export default function EditImagesPage() {
       const offX = (previewLayout.width - vW) / 2;
       const offY = (previewLayout.height - vH) / 2;
 
-      // Ensure bounding fits
       const t = Math.max(img.crop.top, offY);
       const b = Math.max(img.crop.bottom, offY);
       const l = Math.max(img.crop.left, offX);
       const r = Math.max(img.crop.right, offX);
 
-      // Map to original pixels
       const originX = ((l - offX) / vW) * dims.width;
       const originY = ((t - offY) / vH) * dims.height;
       const w = ((previewLayout.width - l - r) / vW) * dims.width;
       const h = ((previewLayout.height - t - b) / vH) * dims.height;
 
-      // Avoid cropping if it's the full image
+      let processedUri = img.uri;
+
       if (Math.abs(w - dims.width) > 5 || Math.abs(h - dims.height) > 5) {
         try {
           const result = await ImageManipulator.manipulateAsync(img.uri, [
@@ -317,15 +325,20 @@ export default function EditImagesPage() {
               },
             },
           ]);
-          updateImage(img.id, { processedUri: result.uri });
+          processedUri = result.uri;
         } catch (e) {
           console.error("Crop error", e);
-          updateImage(img.id, { processedUri: img.uri }); // Fallback
+          processedUri = img.uri;
         }
-      } else {
-        updateImage(img.id, { processedUri: img.uri });
       }
+
+      processedBatch.push({
+        ...img,
+        processedUri,
+      });
     }
+
+    commitBatchImages(processedBatch);
     setIsProcessing(false);
     router.push("/convert-images");
   };
@@ -352,7 +365,7 @@ export default function EditImagesPage() {
         <Text style={styles.header}>Edit Images</Text>
 
         <View style={styles.thumbnailRow}>
-          {images.map((img, idx) => (
+          {batchImages.map((img, idx) => (
             <TouchableOpacity
               key={img.id}
               style={[
