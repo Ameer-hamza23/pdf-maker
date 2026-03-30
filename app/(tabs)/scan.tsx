@@ -191,6 +191,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.surface,
+    marginBottom: spacing.sm,
   },
   message: {
     textAlign: "center",

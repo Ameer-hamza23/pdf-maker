@@ -1,69 +1,125 @@
-import { Link } from "expo-router";
-import {
-    FlatList,
-    Image,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-} from "react-native";
-
 import { useEditImages } from "@/src/context/edit-images-context";
 import { electricCuratorTheme } from "@/src/theme/electric-curator";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
+import {
+  Dimensions,
+  Image,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { DraggableGrid } from "react-native-draggable-grid";
 
 const { colors, spacing, radius, typography } = electricCuratorTheme;
+const screenWidth = Dimensions.get("window").width;
+// Adjusting size to account for margins and padding
+const imageSize = (screenWidth - spacing.md * 2) / 3 - 8;
+
+interface MyGridItem {
+  id: string;
+  uri: string;
+  processedUri?: string;
+  key: string; // DraggableGrid REQUIREMENT
+}
 
 export default function ConvertImagesPage() {
+  const router = useRouter();
   const { images, clearImages } = useEditImages();
 
-  const fileName = (uri: string) => uri.split("/").pop() ?? "image.jpg";
+  // Initialize grid data with required 'key' property
+  const [gridData, setGridData] = useState<MyGridItem[]>([]);
 
-  const getFilterStyle = (filter: string) => {
-    if (filter === "mono") return { tintColor: "#999999", opacity: 0.9 };
-    if (filter === "warm") return { tintColor: "rgba(255, 180, 100, 0.35)" };
-    if (filter === "cool") return { tintColor: "rgba(100, 180, 255, 0.25)" };
-    return {};
+  useEffect(() => {
+    if (images.length > 0) {
+      setGridData(
+        images.map((img) => ({
+          ...img,
+          key: img.id, // Ensure key is a string and unique
+        })),
+      );
+    }
+  }, [images]);
+
+  // The renderItem must return a component that doesn't
+  // interfere with the grid's own PanResponder
+  const renderItem = (item: MyGridItem) => {
+    return (
+      <View
+        key={item.key}
+        style={[styles.imageCard, { width: imageSize, height: imageSize }]}
+      >
+        <Image
+          source={{ uri: item.processedUri || item.uri }}
+          style={styles.image}
+        />
+        {/* Optional: Add a small handle icon or overlay if desired */}
+      </View>
+    );
+  };
+
+  const handleDragRelease = (newData: MyGridItem[]) => {
+    setGridData(newData);
+    // Note: If you want to sync this back to your context immediately:
+    // syncContext(newData);
   };
 
   return (
-    <View style={styles.page}>
-      <Text style={styles.title}>Convert Images</Text>
-      <Text style={styles.subtitle}>
-        Review your selected images before export.
-      </Text>
+    <SafeAreaView style={styles.page}>
+      <View style={styles.container}>
+        <Text style={styles.title}>Convert Images</Text>
+        <Text style={styles.subtitle}>
+          Press and hold an image to drag and reorder.
+        </Text>
 
-      <FlatList
-        data={images}
-        keyExtractor={(item) => item.id}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.previewRow}
-        renderItem={({ item }) => (
-          <View style={styles.previewCard}>
-            <Image source={{ uri: item.processedUri || item.uri }} style={[styles.previewImage, getFilterStyle(item.filter)]} />
-            <Text style={styles.fileName} numberOfLines={1}>
-              {fileName(item.processedUri || item.uri)}
+        <View style={styles.gridContainer}>
+          <DraggableGrid
+            numColumns={3}
+            renderItem={renderItem}
+            data={gridData}
+            onDragRelease={handleDragRelease}
+            itemHeight={imageSize + 8} // Add extra space for margins
+            style={styles.draggableGrid}
+          />
+        </View>
+
+        {/* Footer Area */}
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={styles.addCard}
+            onPress={() => router.push("/scan")}
+          >
+            <MaterialIcons
+              name="add-a-photo"
+              size={24}
+              color={colors.primary}
+            />
+            <Text style={styles.addText}>Add More</Text>
+          </TouchableOpacity>
+
+          <View style={styles.infoCard}>
+            <Text style={styles.infoTitle}>Batch Details</Text>
+            <Text style={styles.infoText}>
+              {gridData.length} item{gridData.length === 1 ? "" : "s"} sorted
+              and ready.
             </Text>
           </View>
-        )}
-      />
 
-      <View style={styles.detailsCard}>
-        <Text style={styles.detailHeading}>Selected images</Text>
-        <Text style={styles.detailText}>
-          {images.length} image{images.length === 1 ? "" : "s"} ready for
-          conversion.
-        </Text>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => {
+              console.log("Final Order:", gridData);
+              // logic to convert to PDF or process final order
+            }}
+          >
+            <Text style={styles.buttonText}>Generate Document</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-
-      <TouchableOpacity style={styles.exportButton} onPress={clearImages}>
-        <Text style={styles.exportText}>Finish and clear</Text>
-      </TouchableOpacity>
-
-      <Link href="/" style={styles.backButton}>
-        <Text style={styles.backText}>Back to home</Text>
-      </Link>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -71,69 +127,88 @@ const styles = StyleSheet.create({
   page: {
     flex: 1,
     backgroundColor: colors.surface,
+  },
+  container: {
+    flex: 1,
     padding: spacing.md,
   },
   title: {
     ...typography.headlineMd,
+    color: colors.onSurface,
     marginBottom: spacing.xs,
   },
   subtitle: {
-    color: colors.onSurface,
+    ...typography.bodyMedium,
+    color: colors.onSurfaceVariant,
     marginBottom: spacing.md,
   },
-  previewRow: {
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
+  gridContainer: {
+    flex: 1, // This allows the grid to take up available space
+    marginBottom: spacing.md,
   },
-  previewCard: {
-    width: 140,
+  draggableGrid: {
+    backgroundColor: colors.surface,
+    justifyContent: "flex-start",
+  },
+  imageCard: {
     borderRadius: radius.md,
-    backgroundColor: colors.surfaceContainerLow,
     overflow: "hidden",
-    alignItems: "center",
+    backgroundColor: colors.surfaceContainerLow,
+    // Add a slight elevation or shadow to make items look "grabbable"
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.5,
   },
-  previewImage: {
-    width: 140,
-    height: 140,
+  image: {
+    width: "100%",
+    height: "100%",
     resizeMode: "cover",
   },
-  fileName: {
-    width: "100%",
-    padding: spacing.sm,
-    color: colors.onSurface,
-    fontSize: 12,
+  footer: {
+    gap: spacing.sm,
   },
-  detailsCard: {
-    marginTop: spacing.md,
+  addCard: {
+    flexDirection: "row",
+    height: 56,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surfaceContainerLow,
+    gap: spacing.sm,
+  },
+  addText: {
+    color: colors.primary,
+    fontWeight: "600",
+  },
+  infoCard: {
     padding: spacing.md,
     borderRadius: radius.md,
     backgroundColor: colors.surfaceContainerLow,
   },
-  detailHeading: {
-    ...typography.titleSm,
-    marginBottom: spacing.xs,
-  },
-  detailText: {
+  infoTitle: {
+    ...typography.titleSmall,
     color: colors.onSurface,
+    marginBottom: 4,
   },
-  exportButton: {
-    marginTop: spacing.lg,
+  infoText: {
+    ...typography.bodySmall,
+    color: colors.onSurfaceVariant,
+  },
+  button: {
     paddingVertical: spacing.md,
     borderRadius: radius.pill,
     backgroundColor: colors.primary,
     alignItems: "center",
+    marginTop: spacing.sm,
   },
-  exportText: {
+  buttonText: {
     color: colors.onPrimary,
     fontWeight: "700",
-  },
-  backButton: {
-    marginTop: spacing.sm,
-    alignItems: "center",
-    paddingVertical: spacing.sm,
-  },
-  backText: {
-    color: colors.primary,
-    fontWeight: "700",
+    fontSize: 16,
   },
 });
