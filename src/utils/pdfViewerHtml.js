@@ -1465,6 +1465,147 @@ export function getPdfViewerHtml(base64Data, options = {}) {
       }
     }
 
+    function wrapTextLines(ctx, text, maxWidth) {
+      const words = String(text || '')
+        .split(/\s+/)
+        .filter(Boolean);
+      const lines = [];
+      let line = '';
+      words.forEach((word) => {
+        const test = line ? line + ' ' + word : word;
+        if (ctx.measureText(test).width > maxWidth && line) {
+          lines.push(line);
+          line = word;
+        } else {
+          line = test;
+        }
+      });
+      if (line) {
+        lines.push(line);
+      }
+      return lines.length ? lines : [''];
+    }
+
+    function exportPageSnapshot(requestId, pageNum, mimeType, quality) {
+      const rid = String(requestId || '');
+      const page = clamp(safeNumber(pageNum, 0), 1, totalPages || 1);
+      const wrapper = document.querySelector('.page-wrapper[data-page="' + page + '"]');
+      if (!wrapper || !totalPages) {
+        sendMessage({
+          type: 'pageExportImageError',
+          requestId: rid,
+          message: 'Page is not available yet.',
+        });
+        return;
+      }
+
+      const canvases = wrapper.querySelectorAll('canvas');
+      const pdfCanvas = canvases[0];
+      const drawCanvas = canvases[1];
+      if (!pdfCanvas) {
+        sendMessage({
+          type: 'pageExportImageError',
+          requestId: rid,
+          message: 'Page canvas is not ready.',
+        });
+        return;
+      }
+
+      const w = pdfCanvas.width;
+      const h = pdfCanvas.height;
+      const exportCanvas = document.createElement('canvas');
+      exportCanvas.width = w;
+      exportCanvas.height = h;
+      const ctx = exportCanvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(pdfCanvas, 0, 0);
+
+      if (drawCanvas) {
+        ctx.drawImage(drawCanvas, 0, 0, drawCanvas.width, drawCanvas.height, 0, 0, w, h);
+      }
+
+      const pageAnnotations = ensurePageAnnotations(page);
+      pageAnnotations.highlights.forEach((ann) => {
+        ctx.fillStyle = ann.color || highlightColor;
+        ctx.globalAlpha = 0.38;
+        ctx.fillRect(ann.x * w, ann.y * h, ann.width * w, ann.height * h);
+        ctx.globalAlpha = 1;
+      });
+
+      const fontSize = Math.max(12, Math.round(w * 0.022));
+      ctx.textBaseline = 'top';
+      pageAnnotations.notes.forEach((ann) => {
+        const maxTextW = Math.min(w * 0.45, 220 * (w / 420));
+        ctx.font = fontSize + 'px -apple-system, BlinkMacSystemFont, sans-serif';
+        const lines = wrapTextLines(ctx, ann.text, maxTextW);
+        const lineHeight = Math.round(fontSize * 1.38);
+        const pad = Math.max(6, Math.round(w * 0.014));
+        const boxW = Math.min(maxTextW + pad * 2, w - ann.x * w - 4);
+        const boxH = lines.length * lineHeight + pad * 2;
+        const nx = ann.x * w;
+        const ny = ann.y * h;
+        ctx.fillStyle = 'rgba(255, 249, 196, 0.96)';
+        ctx.strokeStyle = 'rgba(249, 168, 37, 0.85)';
+        ctx.lineWidth = Math.max(1, w / 520);
+        const r = Math.min(10, pad);
+        ctx.beginPath();
+        ctx.moveTo(nx + r, ny);
+        ctx.arcTo(nx + boxW, ny, nx + boxW, ny + boxH, r);
+        ctx.arcTo(nx + boxW, ny + boxH, nx, ny + boxH, r);
+        ctx.arcTo(nx, ny + boxH, nx, ny, r);
+        ctx.arcTo(nx, ny, nx + boxW, ny, r);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#333333';
+        lines.forEach((line, index) => {
+          ctx.fillText(line, nx + pad, ny + pad + index * lineHeight);
+        });
+      });
+
+      const mime = typeof mimeType === 'string' && mimeType ? mimeType : 'image/png';
+      const q =
+        typeof quality === 'number' && !Number.isNaN(quality)
+          ? clamp(quality, 0.5, 1)
+          : 0.92;
+      let dataUrl = '';
+      try {
+        if (mime === 'image/jpeg' || mime === 'image/jpg') {
+          dataUrl = exportCanvas.toDataURL('image/jpeg', q);
+        } else if (mime === 'image/webp') {
+          dataUrl = exportCanvas.toDataURL('image/webp', q);
+        } else {
+          dataUrl = exportCanvas.toDataURL('image/png');
+        }
+      } catch (err) {
+        sendMessage({
+          type: 'pageExportImageError',
+          requestId: rid,
+          message: err && err.message ? err.message : 'Could not encode image.',
+        });
+        return;
+      }
+
+      const base64Payload = (dataUrl.split(',')[1] || '').trim();
+      if (!base64Payload) {
+        sendMessage({
+          type: 'pageExportImageError',
+          requestId: rid,
+          message: 'Image export returned empty data.',
+        });
+        return;
+      }
+
+      sendMessage({
+        type: 'pageExportImageReady',
+        requestId: rid,
+        page,
+        mimeType: mime === 'image/jpg' ? 'image/jpeg' : mime,
+        base64: base64Payload,
+      });
+    }
+
     function dispatchViewerCommand(parsed) {
       if (!parsed || typeof parsed.command !== 'string') {
         return;
@@ -1496,6 +1637,9 @@ export function getPdfViewerHtml(base64Data, options = {}) {
           break;
         case 'deleteSelected':
           deleteSelectedAnnotation();
+          break;
+        case 'exportPageImage':
+          exportPageSnapshot(parsed.requestId, parsed.page, parsed.mimeType, parsed.quality);
           break;
         default:
           break;

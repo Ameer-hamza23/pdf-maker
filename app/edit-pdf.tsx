@@ -20,7 +20,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as DocumentPicker from 'expo-document-picker';
-import { File, Paths } from 'expo-file-system';
+import { Paths } from 'expo-file-system';
 import * as LegacyFileSystem from 'expo-file-system/legacy';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
@@ -114,7 +114,32 @@ const DEFAULT_COLOR = COLORS[0].value;
 const HIGHLIGHT_ALPHA_HEX = '66';
 const ANNOTATION_STORAGE_DIR = `${Paths.document.uri}annotation-state/`;
 const WORKING_PDF_SUFFIX = '.working.pdf';
-const OFFICE_PREVIEW_TYPES = ['doc', 'docx', 'pptx', 'xls', 'xlsx'];
+const OFFICE_PREVIEW_TYPES = ['doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx'];
+
+/** MIME types for the system file picker; includes a catch-all type so JSON and code files show on all devices. */
+const DOCUMENT_PICKER_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/plain',
+  'text/markdown',
+  'text/html',
+  'text/css',
+  'text/javascript',
+  'application/javascript',
+  'application/json',
+  'application/xml',
+  'text/xml',
+  'text/yaml',
+  'application/x-yaml',
+  'application/octet-stream',
+  'image/*',
+  '*/*',
+];
 const PDF_CONVERSION_FORMATS = [
   {
     id: 'docx',
@@ -149,14 +174,112 @@ const PDF_CONVERSION_FORMATS = [
     mimeType: 'text/html',
   },
 ];
-const OFFICE_FONT_FAMILY_OPTIONS = [
+/** Full list for font picker modal (Word-style dropdown). */
+const OFFICE_FONT_DROPDOWN_OPTIONS = [
   { label: 'Arial', value: 'Arial' },
+  { label: 'Helvetica', value: 'Helvetica' },
   { label: 'Georgia', value: 'Georgia' },
-  { label: 'Times', value: 'Times New Roman' },
+  { label: 'Times New Roman', value: 'Times New Roman' },
   { label: 'Verdana', value: 'Verdana' },
-  { label: 'Courier', value: 'Courier New' },
   { label: 'Tahoma', value: 'Tahoma' },
+  { label: 'Trebuchet MS', value: 'Trebuchet MS' },
+  { label: 'Courier New', value: 'Courier New' },
+  { label: 'Consolas', value: 'Consolas' },
+  { label: 'Palatino', value: 'Palatino Linotype' },
+  { label: 'Garamond', value: 'Garamond' },
+  { label: 'Comic Sans MS', value: 'Comic Sans MS' },
+  { label: 'Impact', value: 'Impact' },
 ];
+
+const OFFICE_FONT_WEIGHT_OPTIONS = [
+  { label: 'Light', value: '300' },
+  { label: 'Regular', value: '400' },
+  { label: 'Medium', value: '500' },
+  { label: 'Semibold', value: '600' },
+  { label: 'Bold', value: '700' },
+  { label: 'Heavy', value: '800' },
+];
+
+const OFFICE_LINE_HEIGHT_OPTIONS = [
+  { label: '1', value: 1 },
+  { label: '1.15', value: 1.15 },
+  { label: '1.35', value: 1.35 },
+  { label: '1.5', value: 1.5 },
+  { label: '1.75', value: 1.75 },
+  { label: '2', value: 2 },
+];
+
+const OFFICE_HEADING_OPTIONS = [
+  { label: 'Normal', value: 'p' },
+  { label: 'Quote', value: 'blockquote' },
+  { label: 'Code', value: 'pre' },
+  { label: 'Heading 1', value: 'h1' },
+  { label: 'Heading 2', value: 'h2' },
+  { label: 'Heading 3', value: 'h3' },
+  { label: 'Heading 4', value: 'h4' },
+];
+
+const PRESENTATION_THEME_OPTIONS = [
+  { label: 'Iris', value: 'default' },
+  { label: 'Ocean', value: 'ocean' },
+  { label: 'Sunset', value: 'sunset' },
+  { label: 'Forest', value: 'forest' },
+  { label: 'Midnight', value: 'midnight' },
+  { label: 'Paper', value: 'paper' },
+];
+
+const PAGE_IMAGE_EXPORT_FORMATS = [
+  { label: 'PNG', subtitle: 'Lossless, larger file', mimeType: 'image/png', extension: 'png' },
+  { label: 'JPEG', subtitle: 'Compressed photos', mimeType: 'image/jpeg', extension: 'jpg' },
+  { label: 'WebP', subtitle: 'Smaller modern format', mimeType: 'image/webp', extension: 'webp' },
+];
+
+function getTextMimeTypeForExtension(ext) {
+  const e = String(ext || '').toLowerCase();
+  const map = {
+    txt: 'text/plain',
+    md: 'text/markdown',
+    html: 'text/html',
+    htm: 'text/html',
+    csv: 'text/csv',
+    json: 'application/json',
+    xml: 'application/xml',
+    yaml: 'text/yaml',
+    yml: 'text/yaml',
+    css: 'text/css',
+    js: 'text/javascript',
+    ts: 'text/typescript',
+    tsx: 'text/typescript',
+    jsx: 'text/javascript',
+    mdx: 'text/markdown',
+    scss: 'text/x-scss',
+    less: 'text/less',
+    log: 'text/plain',
+  };
+  return map[e] || 'text/plain';
+}
+
+const TEXT_FILE_EXTENSIONS = [
+  'txt',
+  'md',
+  'html',
+  'htm',
+  'csv',
+  'json',
+  'xml',
+  'yaml',
+  'yml',
+  'css',
+  'log',
+  'js',
+  'ts',
+  'tsx',
+  'jsx',
+  'mdx',
+  'scss',
+  'less',
+];
+
 const OFFICE_HIGHLIGHT_COLOR = '#FFF59D';
 const OFFICE_FONT_SIZE_OPTIONS = [
   { label: 'A-', action: 'adjustFontSize', value: -2 },
@@ -1121,6 +1244,7 @@ export default function EditPdfPage() {
   const [selectedAnnotation, setSelectedAnnotation] = useState(null);
   const [loading, setLoading] = useState(false);
   const [savingAnnotatedPdf, setSavingAnnotatedPdf] = useState(false);
+  const [savingTextFile, setSavingTextFile] = useState(false);
   const [activeTool, setActiveTool] = useState('view');
   const [activeColor, setActiveColor] = useState(DEFAULT_COLOR);
   const [showColorPicker, setShowColorPicker] = useState(false);
@@ -1140,6 +1264,7 @@ export default function EditPdfPage() {
   const [officePdfBusy, setOfficePdfBusy] = useState(false);
   const [pageNumberInput, setPageNumberInput] = useState('1');
   const [pageEditorBusy, setPageEditorBusy] = useState(false);
+  const [exportPageImageBusy, setExportPageImageBusy] = useState(false);
   const [viewerInstanceId, setViewerInstanceId] = useState(0);
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [renameDraft, setRenameDraft] = useState('');
@@ -1147,6 +1272,8 @@ export default function EditPdfPage() {
   const [customColorModalTitle, setCustomColorModalTitle] =
     useState('Annotation color');
   const customColorTargetRef = useRef('pdf');
+  const textFileSaveRef = useRef(() => Promise.resolve());
+  const [officeFontModalVisible, setOfficeFontModalVisible] = useState(false);
   const [showPdfOverflowMenu, setShowPdfOverflowMenu] = useState(false);
   const [drawBrushPx, setDrawBrushPx] = useState(6);
   const [markerBrushPx, setMarkerBrushPx] = useState(16);
@@ -1161,6 +1288,9 @@ export default function EditPdfPage() {
   });
   const annotationWriteQueueRef = useRef(Promise.resolve());
   const annotationDirectoryReadyRef = useRef(false);
+  const pageImageExportRef = useRef({ requestId: null });
+  /** `copy` = new timestamped PDF; `replace` = same base name, then open as PDF. */
+  const officeSaveModeRef = useRef('copy');
   const officePreviewExportRef = useRef({
     requestId: null,
     chunks: [],
@@ -1416,6 +1546,16 @@ export default function EditPdfPage() {
     setOfficePdfBusy(false);
   }, []);
 
+  useEffect(() => {
+    if (TEXT_FILE_EXTENSIONS.includes(documentType)) {
+      setOfficePreviewMeta({
+        previewKind: 'text',
+        canConvertToPdf: false,
+        isEditable: true,
+      });
+    }
+  }, [documentType]);
+
   const openRenameModal = useCallback(() => {
     if (!documentUri) {
       return;
@@ -1506,6 +1646,34 @@ export default function EditPdfPage() {
     [buildViewerHtml]
   );
 
+  const transitionOfficeExportToPdf = useCallback(
+    (pdfBase64, pdfUri, pdfName) => {
+      const nextDocumentKey = `office-export-${Date.now()}`;
+      setDocumentUri(pdfUri);
+      setDocumentName(pdfName);
+      setDocumentType('pdf');
+      setDocumentKey(nextDocumentKey);
+      setBase64Data(pdfBase64);
+      setAnnotationState({});
+      setSelectedAnnotation(null);
+      setActiveTool('view');
+      setActiveColor(DEFAULT_COLOR);
+      setShowColorPicker(false);
+      setShowToolbar(true);
+      setTextNoteModal(null);
+      setNoteText('');
+      setTotalPages(0);
+      setPageNumberInput('1');
+      setViewerHtml(buildViewerHtml(pdfBase64, {}, 'view', 1));
+      setViewerInstanceId((currentValue) => currentValue + 1);
+      resetOfficePreviewState();
+      setShowPageEditorModal(false);
+      setShowConvertModal(false);
+      resetConversionState();
+    },
+    [buildViewerHtml, resetConversionState, resetOfficePreviewState]
+  );
+
   const sendCommand = useCallback((command) => {
     if (!webViewRef.current) {
       return;
@@ -1531,17 +1699,7 @@ export default function EditPdfPage() {
   const pickDocument = useCallback(async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: [
-          'application/pdf',
-          'application/msword',
-          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-          'application/vnd.ms-powerpoint',
-          'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-          'application/vnd.ms-excel',
-          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          'text/plain',
-          'image/*',
-        ],
+        type: DOCUMENT_PICKER_TYPES,
         copyToCacheDirectory: true,
       });
 
@@ -1603,6 +1761,8 @@ export default function EditPdfPage() {
         setViewerInstanceId((currentValue) => currentValue + 1);
         setShowPageEditorModal(false);
         setShowConvertModal(false);
+        setExportPageImageBusy(false);
+        pageImageExportRef.current.requestId = null;
         resetConversionState();
         resetOfficePreviewState();
         setPageNumberInput('1');
@@ -1632,6 +1792,8 @@ export default function EditPdfPage() {
         setViewerInstanceId((currentValue) => currentValue + 1);
         setShowPageEditorModal(false);
         setShowConvertModal(false);
+        setExportPageImageBusy(false);
+        pageImageExportRef.current.requestId = null;
         resetConversionState();
         resetOfficePreviewState();
         setPageNumberInput('1');
@@ -1713,7 +1875,7 @@ export default function EditPdfPage() {
     }
   }, [buildEditedPdfFile, documentType, documentUri, promptForPdfShareChoice]);
 
-  const convertOfficePreviewToPdf = useCallback(() => {
+  const runOfficePreviewExport = useCallback(() => {
     if (!officePreviewMeta.canConvertToPdf || officePdfBusy) {
       return;
     }
@@ -1731,6 +1893,47 @@ export default function EditPdfPage() {
       title: documentName,
     });
   }, [documentName, officePdfBusy, officePreviewMeta.canConvertToPdf, sendCommand]);
+
+  const promptSaveOfficeDocument = useCallback(() => {
+    if (!officePreviewMeta.canConvertToPdf || officePdfBusy) {
+      return;
+    }
+
+    Alert.alert(
+      'Save edited document',
+      'Edits are exported as a PDF. Native Word, Excel, and PowerPoint formats cannot be written back from this preview.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Save as copy',
+          onPress: () => {
+            officeSaveModeRef.current = 'copy';
+            runOfficePreviewExport();
+          },
+        },
+        {
+          text: 'Replace with PDF',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Replace with PDF?',
+              'The Office file will close and the viewer will open a PDF with the same base name. You can share it like any saved PDF.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Continue',
+                  onPress: () => {
+                    officeSaveModeRef.current = 'replace';
+                    runOfficePreviewExport();
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
+  }, [officePdfBusy, officePreviewMeta.canConvertToPdf, runOfficePreviewExport]);
 
   const sendOfficePreviewCommand = useCallback(
     (payload) => {
@@ -1851,8 +2054,7 @@ export default function EditPdfPage() {
   );
 
   const finalizeOfficePreviewPdfExport = useCallback(
-    async (html) => {
-      const convertedFileName = buildConvertedFileName(documentName, 'pdf');
+    async (html, mode = 'copy') => {
       const printResult = await Print.printToFileAsync({
         html,
       });
@@ -1862,6 +2064,54 @@ export default function EditPdfPage() {
           encoding: LegacyFileSystem.EncodingType.Base64,
         }
       );
+
+      if (mode === 'replace') {
+        const stripped =
+          documentName.replace(/\.[^/.]+$/, '') || documentName || 'document';
+        const pdfFileName = `${sanitizeFileSegment(stripped)}.pdf`;
+        const outputUri = `${Paths.document.uri}${pdfFileName}`;
+
+        await LegacyFileSystem.writeAsStringAsync(outputUri, convertedPdfBase64, {
+          encoding: LegacyFileSystem.EncodingType.Base64,
+        });
+
+        const deviceSaveResult =
+          Platform.OS === 'android'
+            ? await savePdfToAndroidDeviceFolder(convertedPdfBase64, pdfFileName)
+            : { savedToDevice: false, reason: 'unsupported_platform' };
+
+        transitionOfficeExportToPdf(convertedPdfBase64, outputUri, pdfFileName);
+
+        const canShare = await Sharing.isAvailableAsync();
+        const saveSummary = [
+          `Saved as ${pdfFileName}. The viewer is now showing this PDF.`,
+        ];
+
+        if (deviceSaveResult.savedToDevice) {
+          saveSummary.push(
+            'A copy was also saved to the folder you picked on your phone.'
+          );
+        } else if (Platform.OS === 'android') {
+          saveSummary.push(
+            'To save a copy in Downloads, allow the folder picker when prompted.'
+          );
+        }
+
+        Alert.alert('Document saved', saveSummary.join(' '), [
+          ...(canShare
+            ? [
+                {
+                  text: 'Share',
+                  onPress: () => Sharing.shareAsync(outputUri),
+                },
+              ]
+            : []),
+          { text: 'OK' },
+        ]);
+        return;
+      }
+
+      const convertedFileName = buildConvertedFileName(documentName, 'pdf');
       const outputUri = `${Paths.document.uri}${convertedFileName}`;
 
       await LegacyFileSystem.writeAsStringAsync(outputUri, convertedPdfBase64, {
@@ -1898,7 +2148,7 @@ export default function EditPdfPage() {
         { text: 'OK' },
       ]);
     },
-    [documentName]
+    [documentName, transitionOfficeExportToPdf]
   );
 
   const handleConverterMessage = useCallback(
@@ -2258,6 +2508,37 @@ export default function EditPdfPage() {
     writeWorkingPdfCopy,
   ]);
 
+  const exportPdfPageAsImage = useCallback(
+    (format) => {
+      if (documentType !== 'pdf' || exportPageImageBusy || pageEditorBusy) {
+        return;
+      }
+      const pageNumber = getValidatedPageNumber(false);
+      if (!pageNumber) {
+        return;
+      }
+      const requestId = `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+      pageImageExportRef.current.requestId = requestId;
+      setExportPageImageBusy(true);
+      const isLossy =
+        format.mimeType === 'image/jpeg' || format.mimeType === 'image/webp';
+      sendCommand({
+        command: 'exportPageImage',
+        requestId,
+        page: pageNumber,
+        mimeType: format.mimeType,
+        ...(isLossy ? { quality: 0.92 } : {}),
+      });
+    },
+    [
+      documentType,
+      exportPageImageBusy,
+      getValidatedPageNumber,
+      pageEditorBusy,
+      sendCommand,
+    ]
+  );
+
   const saveAnnotatedPdf = useCallback(async () => {
     if (documentType !== 'pdf') {
       return;
@@ -2308,6 +2589,71 @@ export default function EditPdfPage() {
     }
   }, [buildEditedPdfFile, documentType]);
 
+  const saveTextDocumentToDevice = useCallback(async () => {
+    if (!documentUri || !TEXT_FILE_EXTENSIONS.includes(documentType)) {
+      return;
+    }
+
+    const run = textFileSaveRef.current;
+    if (typeof run !== 'function') {
+      Alert.alert('Save', 'Editor is still loading. Try again in a moment.');
+      return;
+    }
+
+    try {
+      setSavingTextFile(true);
+      const ok = await run();
+      if (!ok) {
+        return;
+      }
+
+      const fileBase64 = await LegacyFileSystem.readAsStringAsync(documentUri, {
+        encoding: LegacyFileSystem.EncodingType.Base64,
+      });
+      const mimeType = getTextMimeTypeForExtension(documentType);
+      const deviceSaveResult =
+        Platform.OS === 'android'
+          ? await saveBase64ToAndroidDeviceFolder(
+              fileBase64,
+              documentName || `edited.${documentType}`,
+              mimeType
+            )
+          : { savedToDevice: false, reason: 'unsupported_platform' };
+
+      const canShare = await Sharing.isAvailableAsync();
+      const saveSummary = ['Your changes were written to this document.'];
+
+      if (deviceSaveResult.savedToDevice) {
+        saveSummary.push(
+          'A second copy was also saved to the folder you picked on your phone.'
+        );
+      } else if (Platform.OS === 'android') {
+        saveSummary.push(
+          'To save a copy in Downloads or another folder, allow access when the system folder picker appears.'
+        );
+      }
+
+      Alert.alert('Saved', saveSummary.join(' '), [
+        ...(canShare
+          ? [
+              {
+                text: 'Share',
+                onPress: () => Sharing.shareAsync(documentUri),
+              },
+            ]
+          : []),
+        { text: 'OK' },
+      ]);
+    } catch (error) {
+      Alert.alert(
+        'Save Failed',
+        error && error.message ? error.message : 'Could not save this file.'
+      );
+    } finally {
+      setSavingTextFile(false);
+    }
+  }, [documentName, documentType, documentUri]);
+
   const handleWebViewMessage = useCallback(
     (event) => {
       try {
@@ -2342,6 +2688,91 @@ export default function EditPdfPage() {
               setPageNumberInput(String(data.page));
             }
             setShowPageEditorModal(true);
+            break;
+          case 'pageExportImageReady':
+            if (data.requestId !== pageImageExportRef.current.requestId) {
+              break;
+            }
+            pageImageExportRef.current.requestId = null;
+            setExportPageImageBusy(false);
+            (async () => {
+              try {
+                const page = Number(data.page) || 1;
+                const mime = data.mimeType || 'image/png';
+                const ext =
+                  mime === 'image/jpeg' || mime === 'image/jpg'
+                    ? 'jpg'
+                    : mime === 'image/webp'
+                      ? 'webp'
+                      : 'png';
+                const rawBase = (documentName || 'document').replace(/\.[^/.]+$/, '');
+                const safeBase =
+                  rawBase.replace(/[^\w\-]+/g, '_').slice(0, 72) || 'document';
+                const fileName = `${safeBase}_page_${page}.${ext}`;
+                const outputUri = `${Paths.cache.uri}${fileName}`;
+                await LegacyFileSystem.writeAsStringAsync(outputUri, data.base64, {
+                  encoding: LegacyFileSystem.EncodingType.Base64,
+                });
+
+                const imageMimeType =
+                  ext === 'jpg'
+                    ? 'image/jpeg'
+                    : ext === 'webp'
+                      ? 'image/webp'
+                      : 'image/png';
+                const deviceSaveResult =
+                  Platform.OS === 'android'
+                    ? await saveBase64ToAndroidDeviceFolder(
+                        data.base64,
+                        fileName,
+                        imageMimeType
+                      )
+                    : { savedToDevice: false, reason: 'unsupported_platform' };
+
+                const canShare = await Sharing.isAvailableAsync();
+                const saveSummary = [`Saved in app storage as ${fileName}.`];
+
+                if (deviceSaveResult.savedToDevice) {
+                  saveSummary.push(
+                    'A second copy was also saved to the folder you picked on your phone.'
+                  );
+                } else if (Platform.OS === 'android') {
+                  saveSummary.push(
+                    'To save a copy in Downloads or another folder, allow access when the folder picker appears.'
+                  );
+                }
+
+                Alert.alert('Page image ready', saveSummary.join(' '), [
+                  ...(canShare
+                    ? [
+                        {
+                          text: 'Share',
+                          onPress: () => {
+                            Sharing.shareAsync(outputUri).catch(() => {});
+                          },
+                        },
+                      ]
+                    : []),
+                  { text: 'OK' },
+                ]);
+              } catch (error) {
+                Alert.alert(
+                  'Save failed',
+                  error && error.message ? error.message : 'Could not save the image.'
+                );
+              }
+            })();
+            break;
+          case 'pageExportImageError':
+            if (data.requestId !== pageImageExportRef.current.requestId) {
+              break;
+            }
+            pageImageExportRef.current.requestId = null;
+            setExportPageImageBusy(false);
+            Alert.alert(
+              'Export failed',
+              data.message || 'Could not export this page as an image.'
+            );
             break;
           case 'officePreviewReady':
             setOfficePreviewMeta({
@@ -2382,11 +2813,12 @@ export default function EditPdfPage() {
                 break;
               }
 
-              finalizeOfficePreviewPdfExport(html)
+              finalizeOfficePreviewPdfExport(html, officeSaveModeRef.current)
                 .catch((error) => {
                   Alert.alert('PDF Conversion Failed', error.message);
                 })
                 .finally(() => {
+                  officeSaveModeRef.current = 'copy';
                   setOfficePdfBusy(false);
                 });
             }
@@ -2454,6 +2886,7 @@ export default function EditPdfPage() {
       activeColor,
       activeTool,
       documentKey,
+      documentName,
       drawBrushPx,
       markerBrushPx,
       finalizeOfficePreviewPdfExport,
@@ -2494,10 +2927,16 @@ export default function EditPdfPage() {
   const renderNonPdfViewer = () => {
     const extension = documentType;
 
-    if (['txt'].includes(extension)) {
+    if (TEXT_FILE_EXTENSIONS.includes(extension)) {
       return (
         <View style={styles.nonPdfContainer}>
-          <TextFileViewer uri={documentUri} />
+          <EditableTextFileViewer
+            uri={documentUri}
+            extension={extension}
+            onRegisterSave={(saveFn) => {
+              textFileSaveRef.current = saveFn;
+            }}
+          />
         </View>
       );
     }
@@ -2602,7 +3041,7 @@ export default function EditPdfPage() {
             </View>
           </TouchableOpacity>
           <Text style={styles.supportedFormats}>
-            Supported: PDF, DOC, DOCX, PPT, PPTX, XLS, XLSX, TXT, Images
+            Supported: PDF, Office, TXT, MD, HTML, JSON, code files, Images
           </Text>
         </View>
       )}
@@ -2707,41 +3146,64 @@ export default function EditPdfPage() {
                   </TouchableOpacity>
                 </>
               )}
-              {documentType !== 'pdf' && officePreviewMeta.canConvertToPdf && (
-                <>
-                  <View style={styles.actionBarDivider} />
-                  <TouchableOpacity
-                    style={[
-                      styles.actionIconBtnPrimary,
-                      officePdfBusy && styles.actionIconBtnDisabled,
-                    ]}
-                    disabled={officePdfBusy}
-                    onPress={convertOfficePreviewToPdf}
-                    accessibilityLabel="Convert to PDF"
-                  >
-                    <MaterialIcons
-                      name={officePdfBusy ? 'hourglass-empty' : 'picture-as-pdf'}
-                      size={22}
-                      color={colors.onPrimary}
-                    />
-                  </TouchableOpacity>
-                  {officePreviewMeta.isEditable && (
-                    <TouchableOpacity
-                      style={styles.actionIconBtn}
-                      onPress={() => setShowToolbar((currentValue) => !currentValue)}
-                      accessibilityLabel={
-                        showToolbar ? 'Hide editing tools' : 'Show editing tools'
-                      }
-                    >
-                      <MaterialIcons
-                        name={showToolbar ? 'expand-less' : 'expand-more'}
-                        size={22}
-                        color={colors.onSurface}
-                      />
-                    </TouchableOpacity>
-                  )}
-                </>
-              )}
+              {documentType !== 'pdf' &&
+                (TEXT_FILE_EXTENSIONS.includes(documentType) ||
+                  officePreviewMeta.canConvertToPdf ||
+                  (officePreviewMeta.isEditable &&
+                    officePreviewMeta.previewKind === 'text')) && (
+                  <>
+                    <View style={styles.actionBarDivider} />
+                    {TEXT_FILE_EXTENSIONS.includes(documentType) && (
+                      <TouchableOpacity
+                        style={[
+                          styles.actionIconBtnPrimary,
+                          savingTextFile && styles.actionIconBtnDisabled,
+                        ]}
+                        disabled={savingTextFile}
+                        onPress={saveTextDocumentToDevice}
+                        accessibilityLabel="Save file to device"
+                      >
+                        <MaterialIcons
+                          name={savingTextFile ? 'hourglass-empty' : 'save-alt'}
+                          size={22}
+                          color={colors.onPrimary}
+                        />
+                      </TouchableOpacity>
+                    )}
+                    {officePreviewMeta.canConvertToPdf && (
+                      <TouchableOpacity
+                        style={[
+                          styles.actionIconBtnPrimary,
+                          officePdfBusy && styles.actionIconBtnDisabled,
+                        ]}
+                        disabled={officePdfBusy}
+                        onPress={promptSaveOfficeDocument}
+                        accessibilityLabel="Save edited document as PDF"
+                      >
+                        <MaterialIcons
+                          name={officePdfBusy ? 'hourglass-empty' : 'save-alt'}
+                          size={22}
+                          color={colors.onPrimary}
+                        />
+                      </TouchableOpacity>
+                    )}
+                    {officePreviewMeta.isEditable && (
+                      <TouchableOpacity
+                        style={styles.actionIconBtn}
+                        onPress={() => setShowToolbar((currentValue) => !currentValue)}
+                        accessibilityLabel={
+                          showToolbar ? 'Hide editing tools' : 'Show editing tools'
+                        }
+                      >
+                        <MaterialIcons
+                          name={showToolbar ? 'expand-less' : 'expand-more'}
+                          size={22}
+                          color={colors.onSurface}
+                        />
+                      </TouchableOpacity>
+                    )}
+                  </>
+                )}
             </ScrollView>
           </View>
 
@@ -2758,9 +3220,9 @@ export default function EditPdfPage() {
           {documentType !== 'pdf' && officePreviewMeta.isEditable && (
             <View style={styles.selectionBar}>
               <Text style={styles.selectionText}>
-                Edit text with the toolbar: fonts, sizes, colors (including custom),
-                alignment, lists, and more. Tap an image to resize it. Use Convert to
-                PDF to save a copy.
+                {officePreviewMeta.previewKind === 'text'
+                  ? 'Plain-text editing: tap the save icon to write your changes and optionally save a copy to a folder on your device (Android). Office files use the toolbar below; tap Save to export as PDF (copy or replace with PDF).'
+                  : 'Edit with the toolbar: fonts (dropdown), weight, line height, headings, undo, colors, alignment, lists, and more. Tap an image to resize. Tap Save to export your edits as a PDF — choose a new copy or replace the open file with a PDF.'}
               </Text>
             </View>
           )}
@@ -2921,13 +3383,42 @@ export default function EditPdfPage() {
             </View>
           )}
 
-          {documentType !== 'pdf' && officePreviewMeta.isEditable && showToolbar && (
+          {documentType !== 'pdf' &&
+            officePreviewMeta.isEditable &&
+            showToolbar &&
+            officePreviewMeta.previewKind === 'text' && (
+              <View style={styles.toolbar}>
+                <Text style={styles.textFileToolbarHint}>
+                  Plain text — use the save button in the action bar. Monospace / code
+                  files: pinch-zoom the editor if needed.
+                </Text>
+              </View>
+            )}
+
+          {documentType !== 'pdf' &&
+            officePreviewMeta.isEditable &&
+            showToolbar &&
+            officePreviewMeta.previewKind !== 'text' && (
             <View style={styles.toolbar}>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.officeIconScroll}
               >
+                <TouchableOpacity
+                  style={styles.officeIconBtn}
+                  onPress={() => applyOfficeStyleCommand('undo')}
+                  accessibilityLabel="Undo"
+                >
+                  <MaterialIcons name="undo" size={22} color={colors.onSurface} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.officeIconBtn}
+                  onPress={() => applyOfficeStyleCommand('redo')}
+                  accessibilityLabel="Redo"
+                >
+                  <MaterialIcons name="redo" size={22} color={colors.onSurface} />
+                </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.officeIconBtn}
                   onPress={() => applyOfficeStyleCommand('bold')}
@@ -2971,6 +3462,29 @@ export default function EditPdfPage() {
                   <MaterialIcons name="superscript" size={22} color={colors.onSurface} />
                 </TouchableOpacity>
               </ScrollView>
+
+              {officePreviewMeta.previewKind === 'presentation' && (
+                <>
+                  <Text style={styles.officeSubheadingLabel}>Deck theme</Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.officeOptionRow}
+                  >
+                    {PRESENTATION_THEME_OPTIONS.map((opt) => (
+                      <TouchableOpacity
+                        key={opt.value}
+                        style={styles.officeOptionBtn}
+                        onPress={() =>
+                          applyOfficeStyleCommand('setPresentationTheme', opt.value)
+                        }
+                      >
+                        <Text style={styles.officeOptionText}>{opt.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </>
+              )}
 
               <ScrollView
                 horizontal
@@ -3079,19 +3593,19 @@ export default function EditPdfPage() {
                 </TouchableOpacity>
               </ScrollView>
 
-              <View style={styles.officeOptionRow}>
-                {OFFICE_FONT_FAMILY_OPTIONS.map((fontOption) => (
-                  <TouchableOpacity
-                    key={fontOption.value}
-                    style={styles.officeOptionBtn}
-                    onPress={() =>
-                      applyOfficeStyleCommand('setFontFamily', fontOption.value)
-                    }
-                  >
-                    <Text style={styles.officeOptionText}>{fontOption.label}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+              <TouchableOpacity
+                style={styles.officeFontDropdownBtn}
+                onPress={() => setOfficeFontModalVisible(true)}
+                accessibilityLabel="Choose font family"
+              >
+                <MaterialIcons name="font-download" size={20} color={colors.primaryDim} />
+                <Text style={styles.officeFontDropdownBtnText}>Font family</Text>
+                <MaterialIcons
+                  name="arrow-drop-down"
+                  size={22}
+                  color={colors.onSurface}
+                />
+              </TouchableOpacity>
 
               <View style={styles.officeOptionRow}>
                 {OFFICE_FONT_SIZE_OPTIONS.map((fontSizeOption) => (
@@ -3109,6 +3623,57 @@ export default function EditPdfPage() {
                   </TouchableOpacity>
                 ))}
               </View>
+
+              <Text style={styles.officeSubheadingLabel}>Font weight</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.officeOptionRow}
+              >
+                {OFFICE_FONT_WEIGHT_OPTIONS.map((opt) => (
+                  <TouchableOpacity
+                    key={opt.value}
+                    style={styles.officeOptionBtn}
+                    onPress={() => applyOfficeStyleCommand('setFontWeight', opt.value)}
+                  >
+                    <Text style={styles.officeOptionText}>{opt.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              <Text style={styles.officeSubheadingLabel}>Line height</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.officeOptionRow}
+              >
+                {OFFICE_LINE_HEIGHT_OPTIONS.map((opt) => (
+                  <TouchableOpacity
+                    key={String(opt.value)}
+                    style={styles.officeOptionBtn}
+                    onPress={() => applyOfficeStyleCommand('setLineHeight', opt.value)}
+                  >
+                    <Text style={styles.officeOptionText}>{opt.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              <Text style={styles.officeSubheadingLabel}>Paragraph / heading</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.officeOptionRow}
+              >
+                {OFFICE_HEADING_OPTIONS.map((opt) => (
+                  <TouchableOpacity
+                    key={opt.value}
+                    style={styles.officeOptionBtn}
+                    onPress={() => applyOfficeStyleCommand('setHeading', opt.value)}
+                  >
+                    <Text style={styles.officeOptionText}>{opt.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
 
               <View style={styles.colorRow}>
                 {COLORS.map((color) => (
@@ -3136,7 +3701,7 @@ export default function EditPdfPage() {
                 </TouchableOpacity>
               </View>
             </View>
-          )}
+            )}
 
           {documentType === 'pdf' && viewerHtml ? (
             <WebView
@@ -3284,68 +3849,98 @@ export default function EditPdfPage() {
         onRequestClose={() => setShowPageEditorModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Edit PDF Pages</Text>
-            <Text style={styles.pageEditorHint}>
-              Tap a page to select it. Long-press any page to open this panel
-              for that page instantly.
-            </Text>
-            <Text style={styles.pageEditorMeta}>
-              Current pages: {totalPages}
-            </Text>
-            <View style={styles.pageSelectionCard}>
-              <Text style={styles.pageSelectionLabel}>Selected page</Text>
-              <Text style={styles.pageSelectionValue}>
-                {Number.parseInt(pageNumberInput, 10) || 1}
-              </Text>
-              <Text style={styles.pageSelectionHint}>
-                Remove deletes this page. Blank and image add a new page after it.
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={[
-                styles.pageActionBtn,
-                pageEditorBusy && styles.actionBtnDisabled,
-              ]}
-              disabled={pageEditorBusy}
-              onPress={removePdfPage}
+          <View style={[styles.modalContent, styles.pageEditorModalCard]}>
+            <ScrollView
+              style={styles.pageEditorModalScroll}
+              contentContainerStyle={styles.pageEditorModalScrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
             >
-              <Text style={styles.pageActionBtnText}>Remove this page</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.pageActionBtnPrimary,
-                pageEditorBusy && styles.actionBtnDisabled,
-              ]}
-              disabled={pageEditorBusy}
-              onPress={insertBlankPdfPage}
-            >
-              <Text style={styles.pageActionBtnPrimaryText}>
-                Add blank page after
+              <Text style={styles.modalTitle}>Edit PDF Pages</Text>
+              <Text style={styles.pageEditorHint}>
+                Tap a page to select it. Long-press any page to open this panel
+                for that page instantly.
               </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.pageActionBtnPrimary,
-                pageEditorBusy && styles.actionBtnDisabled,
-              ]}
-              disabled={pageEditorBusy}
-              onPress={insertImagePdfPage}
-            >
-              <Text style={styles.pageActionBtnPrimaryText}>
-                Add image page after
+              <Text style={styles.pageEditorMeta}>
+                Current pages: {totalPages}
               </Text>
-            </TouchableOpacity>
-            <View style={styles.modalButtons}>
+              <View style={styles.pageSelectionCard}>
+                <Text style={styles.pageSelectionLabel}>Selected page</Text>
+                <Text style={styles.pageSelectionValue}>
+                  {Number.parseInt(pageNumberInput, 10) || 1}
+                </Text>
+                <Text style={styles.pageSelectionHint}>
+                  Remove deletes this page. Blank and image add a new page after it.
+                </Text>
+              </View>
+              <Text style={styles.pageExportSectionTitle}>Download page as image</Text>
+              <Text style={styles.pageExportSectionHint}>
+                Exports the selected page including highlights, drawings, and notes.
+              </Text>
+              {PAGE_IMAGE_EXPORT_FORMATS.map((fmt) => (
+                <TouchableOpacity
+                  key={fmt.mimeType}
+                  style={[
+                    styles.pageActionBtnPrimary,
+                    (pageEditorBusy || exportPageImageBusy) && styles.actionBtnDisabled,
+                  ]}
+                  disabled={pageEditorBusy || exportPageImageBusy}
+                  onPress={() => exportPdfPageAsImage(fmt)}
+                >
+                  <View style={styles.pageExportFormatRow}>
+                    <Text style={styles.pageActionBtnPrimaryText}>
+                      {fmt.label}
+                      {exportPageImageBusy ? '…' : ''}
+                    </Text>
+                    <Text style={styles.pageExportFormatSubtitle}>{fmt.subtitle}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
               <TouchableOpacity
-                style={styles.modalBtnCancel}
-                onPress={() => setShowPageEditorModal(false)}
+                style={[
+                  styles.pageActionBtn,
+                  pageEditorBusy && styles.actionBtnDisabled,
+                ]}
+                disabled={pageEditorBusy}
+                onPress={removePdfPage}
               >
-                <Text style={styles.modalBtnCancelText}>
-                  {pageEditorBusy ? 'Working...' : 'Close'}
+                <Text style={styles.pageActionBtnText}>Remove this page</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.pageActionBtnPrimary,
+                  pageEditorBusy && styles.actionBtnDisabled,
+                ]}
+                disabled={pageEditorBusy}
+                onPress={insertBlankPdfPage}
+              >
+                <Text style={styles.pageActionBtnPrimaryText}>
+                  Add blank page after
                 </Text>
               </TouchableOpacity>
-            </View>
+              <TouchableOpacity
+                style={[
+                  styles.pageActionBtnPrimary,
+                  pageEditorBusy && styles.actionBtnDisabled,
+                ]}
+                disabled={pageEditorBusy}
+                onPress={insertImagePdfPage}
+              >
+                <Text style={styles.pageActionBtnPrimaryText}>
+                  Add image page after
+                </Text>
+              </TouchableOpacity>
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={styles.modalBtnCancel}
+                  onPress={() => setShowPageEditorModal(false)}
+                >
+                  <Text style={styles.modalBtnCancelText}>
+                    {pageEditorBusy || exportPageImageBusy ? 'Working...' : 'Close'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -3440,6 +4035,43 @@ export default function EditPdfPage() {
         </View>
       </Modal>
 
+      <Modal
+        visible={officeFontModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setOfficeFontModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, styles.officeFontModalCard]}>
+            <Text style={styles.modalTitle}>Font family</Text>
+            <ScrollView
+              style={styles.officeFontModalScroll}
+              keyboardShouldPersistTaps="handled"
+            >
+              {OFFICE_FONT_DROPDOWN_OPTIONS.map((opt) => (
+                <TouchableOpacity
+                  key={opt.value}
+                  style={styles.officeFontModalRow}
+                  onPress={() => {
+                    applyOfficeStyleCommand('setFontFamily', opt.value);
+                    setOfficeFontModalVisible(false);
+                  }}
+                >
+                  <Text style={styles.officeFontModalRowText}>{opt.label}</Text>
+                  <Text style={styles.officeFontModalRowMeta}>{opt.value}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity
+              style={styles.officeFontModalClose}
+              onPress={() => setOfficeFontModalVisible(false)}
+            >
+              <Text style={styles.modalBtnCancelText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <CustomColorModal
         visible={customColorModalVisible}
         seedHex={activeColor}
@@ -3451,33 +4083,79 @@ export default function EditPdfPage() {
   );
 }
 
-function TextFileViewer({ uri }) {
+function EditableTextFileViewer({ uri, extension, onRegisterSave }) {
   const [content, setContent] = useState('');
   const [loadingText, setLoadingText] = useState(true);
+  const originalRef = useRef('');
 
-  React.useEffect(() => {
+  const save = useCallback(async () => {
+    try {
+      await LegacyFileSystem.writeAsStringAsync(uri, content, {
+        encoding: LegacyFileSystem.EncodingType.UTF8,
+      });
+      originalRef.current = content;
+      return true;
+    } catch (error) {
+      Alert.alert('Save failed', String(error?.message || error));
+      return false;
+    }
+  }, [uri, content]);
+
+  useEffect(() => {
+    onRegisterSave?.(save);
+  }, [onRegisterSave, save]);
+
+  useEffect(() => {
+    let cancelled = false;
     (async () => {
+      setLoadingText(true);
       try {
-        const file = new File(uri);
-        const text = await file.text();
-        setContent(text);
+        const text = await LegacyFileSystem.readAsStringAsync(uri, {
+          encoding: LegacyFileSystem.EncodingType.UTF8,
+        });
+        if (!cancelled) {
+          setContent(text);
+          originalRef.current = text;
+        }
       } catch (error) {
-        setContent('Error reading file: ' + error.message);
+        if (!cancelled) {
+          setContent('Error reading file: ' + error.message);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingText(false);
+        }
       }
-      setLoadingText(false);
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [uri]);
 
   if (loadingText) {
-    return <ActivityIndicator size="large" color={colors.primary} />;
+    return (
+      <View style={styles.textEditorLoading}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
   }
 
   return (
-    <ScrollView style={styles.textViewerScroll}>
-      <Text style={styles.textViewerContent} selectable>
-        {content}
-      </Text>
-    </ScrollView>
+    <View style={styles.textEditorWrapper}>
+      <TextInput
+        style={styles.textEditorInput}
+        multiline
+        value={content}
+        onChangeText={setContent}
+        textAlignVertical="top"
+        autoCapitalize="none"
+        autoCorrect={false}
+        spellCheck={false}
+        scrollEnabled
+        placeholder="File is empty. Start typing…"
+        placeholderTextColor={withAlpha(colors.onSurface, 0.38)}
+      />
+    </View>
   );
 }
 
@@ -3969,6 +4647,93 @@ const styles = StyleSheet.create({
     color: colors.onSurface,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
+  textEditorWrapper: {
+    flex: 1,
+    minHeight: 120,
+  },
+  textEditorLoading: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  textEditorInput: {
+    flex: 1,
+    margin: 12,
+    padding: 14,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: withAlpha(colors.outlineVariant, 0.55),
+    backgroundColor: colors.surfaceContainerLowest,
+    fontSize: 14,
+    lineHeight: 22,
+    color: colors.onSurface,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  textFileToolbarHint: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: withAlpha(colors.onSurface, 0.72),
+    paddingHorizontal: 4,
+    marginBottom: 4,
+  },
+  officeFontDropdownBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: radius.sm,
+    backgroundColor: ui.shellElevated,
+    borderWidth: 1,
+    borderColor: withAlpha(colors.outlineVariant, 0.5),
+  },
+  officeFontDropdownBtnText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.primaryDim,
+  },
+  officeSubheadingLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: withAlpha(colors.onSurface, 0.58),
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
+    marginBottom: 6,
+    marginTop: 4,
+  },
+  officeFontModalCard: {
+    maxWidth: 400,
+    maxHeight: '72%',
+  },
+  officeFontModalScroll: {
+    maxHeight: 360,
+  },
+  officeFontModalRow: {
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: withAlpha(colors.outlineVariant, 0.5),
+  },
+  officeFontModalRowText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.onSurface,
+  },
+  officeFontModalRowMeta: {
+    fontSize: 11,
+    color: withAlpha(colors.onSurface, 0.5),
+    marginTop: 4,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  officeFontModalClose: {
+    marginTop: 12,
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: withAlpha(colors.onSurface, 0.42),
@@ -4310,6 +5075,37 @@ const styles = StyleSheet.create({
     color: withAlpha(colors.onSurface, 0.72),
     fontSize: 12,
     lineHeight: 18,
+  },
+  pageEditorModalCard: {
+    maxHeight: '88%',
+  },
+  pageEditorModalScroll: {
+    flexGrow: 0,
+  },
+  pageEditorModalScrollContent: {
+    paddingBottom: 4,
+  },
+  pageExportSectionTitle: {
+    color: colors.onSurface,
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 4,
+    marginTop: 4,
+  },
+  pageExportSectionHint: {
+    color: withAlpha(colors.onSurface, 0.72),
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  pageExportFormatRow: {
+    alignItems: 'center',
+  },
+  pageExportFormatSubtitle: {
+    color: withAlpha(colors.onPrimary, 0.88),
+    fontSize: 11,
+    marginTop: 4,
+    textAlign: 'center',
   },
   convertLoader: {
     marginVertical: 12,

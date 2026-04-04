@@ -186,6 +186,97 @@ export function getOfficePreviewHtml(base64Data, options = {}) {
     .slide-line + .slide-line {
       margin-top: 10px;
     }
+    .ppt-deck,
+    .ppt-deck-legacy {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .ppt-deck .slide-card,
+    .ppt-deck-legacy .slide-card {
+      padding: 0;
+      overflow: hidden;
+      border-radius: 16px;
+      box-shadow: 0 14px 32px rgba(15, 23, 42, 0.2);
+      border: none;
+    }
+    .ppt-deck .slide-header,
+    .ppt-deck-legacy .slide-header {
+      padding: 12px 18px 0;
+      margin-bottom: 8px;
+    }
+    .ppt-deck .slide-body,
+    .ppt-deck-legacy .slide-body {
+      margin: 0 14px 14px;
+      min-height: 160px;
+    }
+    .ppt-theme-default .slide-card {
+      background: linear-gradient(155deg, #1a237e 0%, #303f9f 42%, #5c6bc0 100%);
+    }
+    .ppt-theme-default .slide-header {
+      color: rgba(255, 255, 255, 0.95);
+    }
+    .ppt-theme-default .slide-body {
+      background: rgba(255, 255, 255, 0.98);
+      border: none;
+      color: #1a237e;
+    }
+    .ppt-theme-ocean .slide-card {
+      background: linear-gradient(155deg, #004d66 0%, #00838f 50%, #4dd0e1 100%);
+    }
+    .ppt-theme-ocean .slide-header {
+      color: rgba(255, 255, 255, 0.95);
+    }
+    .ppt-theme-ocean .slide-body {
+      background: rgba(255, 255, 255, 0.97);
+      border: none;
+      color: #004d66;
+    }
+    .ppt-theme-sunset .slide-card {
+      background: linear-gradient(155deg, #bf360c 0%, #e65100 45%, #ffb74d 100%);
+    }
+    .ppt-theme-sunset .slide-header {
+      color: rgba(255, 255, 255, 0.96);
+    }
+    .ppt-theme-sunset .slide-body {
+      background: rgba(255, 248, 240, 0.98);
+      border: none;
+      color: #4e342e;
+    }
+    .ppt-theme-forest .slide-card {
+      background: linear-gradient(155deg, #1b5e20 0%, #388e3c 48%, #81c784 100%);
+    }
+    .ppt-theme-forest .slide-header {
+      color: rgba(255, 255, 255, 0.95);
+    }
+    .ppt-theme-forest .slide-body {
+      background: rgba(255, 255, 255, 0.97);
+      border: none;
+      color: #1b5e20;
+    }
+    .ppt-theme-midnight .slide-card {
+      background: linear-gradient(155deg, #0d1117 0%, #1c2333 50%, #37474f 100%);
+    }
+    .ppt-theme-midnight .slide-header {
+      color: rgba(187, 211, 255, 0.92);
+    }
+    .ppt-theme-midnight .slide-body {
+      background: rgba(30, 35, 48, 0.96);
+      border: 1px solid rgba(100, 120, 160, 0.35);
+      color: #e8eaf6;
+    }
+    .ppt-theme-paper .slide-card {
+      background: linear-gradient(180deg, #faf7f2 0%, #f0ebe3 100%);
+      box-shadow: 0 8px 24px rgba(60, 48, 36, 0.12);
+    }
+    .ppt-theme-paper .slide-header {
+      color: #6d4c41;
+    }
+    .ppt-theme-paper .slide-body {
+      background: #ffffff;
+      border: 1px solid #e0d8ce;
+      color: #3e342e;
+    }
     .unsupported {
       color: #8b1e2d;
       font-weight: 600;
@@ -555,6 +646,94 @@ export function getOfficePreviewHtml(base64Data, options = {}) {
       return true;
     }
 
+    function applyFontWeightToSelection(weight) {
+      const w = String(weight || '400');
+      const target = focusEditableTarget();
+      if (!target) {
+        return false;
+      }
+
+      document.execCommand('styleWithCSS', false, true);
+      const range = getSelectionRangeWithinPreview();
+      if (range && !range.collapsed) {
+        const span = document.createElement('span');
+        span.style.fontWeight = w;
+        try {
+          range.surroundContents(span);
+        } catch (_) {
+          const fragment = range.extractContents();
+          span.appendChild(fragment);
+          range.insertNode(span);
+        }
+        return true;
+      }
+
+      const block = getFontSizeTarget();
+      if (block && previewRoot.contains(block)) {
+        block.style.fontWeight = w;
+        return true;
+      }
+
+      return false;
+    }
+
+    function applyLineHeightToSelection(multiple) {
+      const m = Number(multiple);
+      if (!Number.isFinite(m) || m < 0.75 || m > 3.25) {
+        return false;
+      }
+
+      if (!focusEditableTarget()) {
+        return false;
+      }
+
+      const sel = window.getSelection();
+      let el = null;
+      if (sel && sel.rangeCount > 0) {
+        var n = sel.getRangeAt(0).commonAncestorContainer;
+        if (n.nodeType === Node.TEXT_NODE) {
+          n = n.parentElement;
+        }
+        if (n && n.closest) {
+          el = n.closest('p, div, li, h1, h2, h3, h4, td, th, section, article, .docx-body');
+        }
+      }
+
+      if (!el || !previewRoot.contains(el)) {
+        el = getFontSizeTarget();
+      }
+
+      if (el && previewRoot.contains(el)) {
+        el.style.lineHeight = String(m);
+        return true;
+      }
+
+      return false;
+    }
+
+    function applyHeadingTag(tagName) {
+      var raw = String(tagName || 'p').toLowerCase();
+      var allowed = { p: 'p', h1: 'h1', h2: 'h2', h3: 'h3', h4: 'h4', blockquote: 'blockquote', pre: 'pre' };
+      var tag = allowed[raw] || 'p';
+
+      if (!focusEditableTarget()) {
+        return false;
+      }
+
+      document.execCommand('styleWithCSS', false, true);
+      return document.execCommand('formatBlock', false, tag);
+    }
+
+    function execUndo() {
+      focusEditableTarget();
+      return document.execCommand('undo', false, null);
+    }
+
+    function execRedo() {
+      focusEditableTarget();
+      return document.execCommand('redo', false, null);
+    }
+
     function insertImageIntoPreview(dataUrl) {
       const target = focusEditableTarget();
       if (!target || !dataUrl) {
@@ -714,6 +893,75 @@ export function getOfficePreviewHtml(base64Data, options = {}) {
         '<div class="slide-body" contenteditable="true">' + bodyMarkup + '</div>' +
         '</section>'
       );
+    }
+
+    function chunkLinesIntoSlides(lines, perSlide) {
+      if (!lines.length) {
+        return [['[No readable text extracted from this .ppt file.]']];
+      }
+      const chunks = [];
+      let current = [];
+      const maxPer = Math.max(4, Math.min(Number(perSlide) || 14, 40));
+      for (let i = 0; i < lines.length; i++) {
+        current.push(lines[i]);
+        if (current.length >= maxPer) {
+          chunks.push(current);
+          current = [];
+        }
+      }
+      if (current.length) {
+        chunks.push(current);
+      }
+      return chunks;
+    }
+
+    function filterPptNoise(lines) {
+      return lines.filter((line) => {
+        const l = String(line || '').toLowerCase();
+        if (l.length < 4) {
+          return false;
+        }
+        if (l.indexOf('powerpoint') !== -1 && l.length < 48) {
+          return false;
+        }
+        if (l.indexOf('microsoft office') !== -1) {
+          return false;
+        }
+        if (l === 'slide' || l === 'slide show') {
+          return false;
+        }
+        return true;
+      });
+    }
+
+    function applyPresentationTheme(themeName) {
+      const safe = String(themeName || 'default').replace(/[^a-z0-9_-]/gi, '') || 'default';
+      const deck = previewRoot.querySelector('.ppt-deck, .ppt-deck-legacy');
+      if (!deck) {
+        return false;
+      }
+      deck.className = deck.className.replace(/\bppt-theme-[a-z0-9_-]+\b/gi, '').trim();
+      deck.classList.add('ppt-theme-' + safe);
+      return true;
+    }
+
+    function renderLegacyPpt() {
+      setStatus('Rendering PowerPoint (.ppt)...');
+      const bytes = base64ToUint8Array(sourceBase64);
+      let lines = finalizeLegacyLines(
+        extractUtf16Strings(bytes).concat(extractAsciiStrings(bytes))
+      );
+      lines = filterPptNoise(lines);
+      const chunks = chunkLinesIntoSlides(lines, 14);
+      const slideMarkup = chunks.map((chunk, index) => buildSlideMarkup(chunk, index + 1));
+      setHtmlPreview(
+        '<div class="ppt-deck-legacy ppt-theme-default">' + slideMarkup.join('') + '</div>'
+      );
+      setStatus('PowerPoint (.ppt) preview ready');
+      notifyPreviewReady('presentation', {
+        canConvertToPdf: true,
+        isEditable: true,
+      });
     }
 
     function finalizeLegacyLines(lines) {
@@ -957,7 +1205,9 @@ export function getOfficePreviewHtml(base64Data, options = {}) {
         slideMarkup.push(buildSlideMarkup(slideLines, index + 1));
       }
 
-      setHtmlPreview(slideMarkup.join(''));
+      setHtmlPreview(
+        '<div class="ppt-deck ppt-theme-default">' + slideMarkup.join('') + '</div>'
+      );
       setStatus('Presentation preview ready');
       notifyPreviewReady('presentation', {
         canConvertToPdf: true,
@@ -992,8 +1242,13 @@ export function getOfficePreviewHtml(base64Data, options = {}) {
           return;
         }
 
+        if (sourceExtension === 'ppt') {
+          renderLegacyPpt();
+          return;
+        }
+
         renderUnsupported(
-          'This legacy Office format opens best in its dedicated app. In-app preview is available for DOC, DOCX, PPTX, XLSX, and XLS files.'
+          'This file type is not supported for in-app preview. Try DOC, DOCX, PPT, PPTX, XLS, XLSX, or plain text / code files.'
         );
       } catch (error) {
         renderUnsupported(error && error.message ? error.message : 'Preview failed.');
@@ -1095,6 +1350,39 @@ export function getOfficePreviewHtml(base64Data, options = {}) {
                 message: 'Tap an image first, then use the resize buttons.',
               });
             }
+            break;
+          case 'setFontWeight':
+            if (!applyFontWeightToSelection(command.value)) {
+              sendMessage({
+                type: 'officePreviewCommandError',
+                message: 'Select text or tap in the editor first.',
+              });
+            }
+            break;
+          case 'setLineHeight':
+            if (!applyLineHeightToSelection(command.value)) {
+              sendMessage({
+                type: 'officePreviewCommandError',
+                message: 'Tap inside a paragraph first.',
+              });
+            }
+            break;
+          case 'setHeading':
+            if (!applyHeadingTag(command.value)) {
+              sendMessage({
+                type: 'officePreviewCommandError',
+                message: 'Tap in the text first.',
+              });
+            }
+            break;
+          case 'undo':
+            execUndo();
+            break;
+          case 'redo':
+            execRedo();
+            break;
+          case 'setPresentationTheme':
+            applyPresentationTheme(command.value);
             break;
         }
         return;
