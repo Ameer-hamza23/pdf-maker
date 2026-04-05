@@ -193,6 +193,7 @@ export default function EditImagesPage() {
   const dragStartCrop = useRef({ top: 0, left: 0, right: 0, bottom: 0 });
   const cropInitializedIds = useRef(new Set<string>());
   const [cropGestureActive, setCropGestureActive] = useState(false);
+  const [filterStripOpen, setFilterStripOpen] = useState(false);
 
   const modeRef = useRef(mode);
   const cropRef = useRef<CropInsetState>({
@@ -572,8 +573,16 @@ export default function EditImagesPage() {
         </ScrollView>
       </View>
 
-      <View style={styles.previewShell}>
-        <View style={styles.previewCard} onLayout={onPreviewLayout}>
+      <View
+        style={[
+          styles.previewShell,
+          filterStripOpen && styles.previewShellFilterOpen,
+        ]}
+      >
+        <View
+          style={[styles.previewCard, filterStripOpen && styles.previewCardTaller]}
+          onLayout={onPreviewLayout}
+        >
           <Image
             key={currentImage.id + currentImage.uri}
             source={{ uri: currentImage.uri }}
@@ -758,33 +767,89 @@ export default function EditImagesPage() {
           />
         </TouchableOpacity>
         <View style={styles.toolStripDivider} />
-        {IMAGE_FILTER_PRESETS.map((preset) => {
-          const active = currentImage.filter === preset.id;
-          return (
-            <TouchableOpacity
-              key={preset.id}
-              style={[
-                styles.filterIconBtn,
-                active && styles.filterIconBtnActive,
-              ]}
-              onPress={() => {
-                updateImage(currentImage.id, {
-                  filter: preset.id as ImageFilterId,
-                });
-                setMode("filter");
-              }}
-              accessibilityLabel={preset.label}
-              accessibilityState={{ selected: active }}
-            >
-              <MaterialIcons
-                name={preset.materialIcon as never}
-                size={22}
-                color={active ? colors.onPrimary : colors.onSurface}
-              />
-            </TouchableOpacity>
-          );
-        })}
+        <TouchableOpacity
+          style={[
+            styles.toolChip,
+            filterStripOpen && styles.toolChipActive,
+          ]}
+          onPress={() => setFilterStripOpen((v) => !v)}
+          accessibilityLabel="Filters"
+          accessibilityState={{ expanded: filterStripOpen }}
+        >
+          <MaterialIcons
+            name="filter-alt"
+            size={22}
+            color={
+              filterStripOpen ? colors.onPrimary : colors.onSurface
+            }
+          />
+        </TouchableOpacity>
       </ScrollView>
+
+      {filterStripOpen ? (
+        <ScrollView
+          horizontal
+          nestedScrollEnabled
+          showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          scrollEnabled={!cropGestureActive}
+          contentContainerStyle={styles.filterStripRowContent}
+        >
+          {IMAGE_FILTER_PRESETS.map((preset) => {
+            const active = currentImage.filter === preset.id;
+            return (
+              <TouchableOpacity
+                key={preset.id}
+                style={styles.filterPreviewCell}
+                onPress={() => {
+                  updateImage(currentImage.id, {
+                    filter: preset.id as ImageFilterId,
+                  });
+                  setMode("filter");
+                }}
+                accessibilityLabel={preset.label}
+                accessibilityState={{ selected: active }}
+              >
+                <View
+                  style={[
+                    styles.filterPreviewImageWrap,
+                    active && styles.filterPreviewImageWrapActive,
+                  ]}
+                >
+                  <Image
+                    source={{ uri: currentImage.uri }}
+                    style={[
+                      styles.filterPreviewImage,
+                      preset.preview.imageStyle as object,
+                    ]}
+                  />
+                  {preset.preview.overlayColor ? (
+                    <View
+                      pointerEvents="none"
+                      style={[
+                        StyleSheet.absoluteFill,
+                        {
+                          backgroundColor: preset.preview.overlayColor,
+                          opacity: preset.preview.overlayOpacity ?? 0.2,
+                        },
+                      ]}
+                    />
+                  ) : null}
+                </View>
+                <Text
+                  style={[
+                    styles.filterPreviewLabel,
+                    active && styles.filterPreviewLabelActive,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {preset.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      ) : null}
 
       <TouchableOpacity
         style={[
@@ -825,6 +890,10 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.md,
     marginTop: spacing.sm,
   },
+  /** Slightly more room for the main photo when the filter strip is open. */
+  previewShellFilterOpen: {
+    minHeight: 260,
+  },
   thumbnailWrap: {
     borderRadius: radius.sm,
     overflow: "hidden",
@@ -850,6 +919,9 @@ const styles = StyleSheet.create({
     position: "relative",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
+  },
+  previewCardTaller: {
+    minHeight: 300,
   },
   image: { width: "100%", height: "100%", resizeMode: "contain" },
 
@@ -950,19 +1022,45 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.xs,
     backgroundColor: withAlpha(colors.outlineVariant, 0.95),
   },
-  filterIconBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.surfaceContainerLowest,
-    borderWidth: 1,
-    borderColor: withAlpha(colors.outlineVariant, 0.9),
-    alignItems: "center",
-    justifyContent: "center",
+  filterStripRowContent: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 10,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.xs,
   },
-  filterIconBtnActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primaryDim,
+  filterPreviewCell: {
+    width: 80,
+    alignItems: "center",
+  },
+  filterPreviewImageWrap: {
+    width: 80,
+    height: 80,
+    borderRadius: radius.md,
+    overflow: "hidden",
+    borderWidth: 2,
+    borderColor: withAlpha(colors.outlineVariant, 0.85),
+    backgroundColor: "#111",
+  },
+  filterPreviewImageWrapActive: {
+    borderColor: colors.primary,
+  },
+  filterPreviewImage: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
+  },
+  filterPreviewLabel: {
+    marginTop: 4,
+    fontSize: 10,
+    fontWeight: "600",
+    color: withAlpha(colors.onSurface, 0.65),
+    textAlign: "center",
+    maxWidth: 80,
+  },
+  filterPreviewLabelActive: {
+    color: colors.primary,
   },
   nextButton: {
     marginTop: spacing.sm,
