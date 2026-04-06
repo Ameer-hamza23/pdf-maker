@@ -1,6 +1,8 @@
 import type { Href } from "expo-router";
 import { ScrollView, Text, View } from "react-native";
 
+import { StaticBannerAd } from "@/src/ads/components/StaticBannerAd";
+import { useAdsOptional } from "@/src/ads/AdsProvider";
 import { HomeActionCard } from "@/src/components/home-action-card";
 import type { IconSymbolName } from "@/src/components/icon-symbol";
 import { electricCuratorTheme } from "@/src/theme/electric-curator";
@@ -47,6 +49,9 @@ const actions: HomeAction[] = [
 ];
 
 export default function HomeScreen() {
+  const ads = useAdsOptional();
+  const showBanner = ads?.preferences.bannerEnabled ?? true;
+
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
@@ -98,6 +103,13 @@ export default function HomeScreen() {
           ))}
         </View>
       </View>
+
+      {showBanner ? (
+        <View style={{ gap: spacing.xs }}>
+          <Text style={typography.labelMd}>Sponsored</Text>
+          <StaticBannerAd />
+        </View>
+      ) : null}
     </ScrollView>
   );
 }

@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { AdsProvider } from "@/src/ads/AdsProvider";
 import { EditImagesProvider } from "@/src/context/edit-images-context";
 import { electricCuratorTheme } from "@/src/theme/electric-curator";
 
@@ -16,20 +17,22 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <EditImagesProvider>
-          <StatusBar
-            style="dark"
-            backgroundColor={electricCuratorTheme.colors.surface}
-          />
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: {
-                backgroundColor: electricCuratorTheme.colors.surface,
-              },
-            }}
-          />
-        </EditImagesProvider>
+        <AdsProvider>
+          <EditImagesProvider>
+            <StatusBar
+              style="dark"
+              backgroundColor={electricCuratorTheme.colors.surface}
+            />
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: {
+                  backgroundColor: electricCuratorTheme.colors.surface,
+                },
+              }}
+            />
+          </EditImagesProvider>
+        </AdsProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

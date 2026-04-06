@@ -1,5 +1,6 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useRouter } from "expo-router";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { staticUserProfile } from "@/src/data/staticUserProfile";
@@ -11,6 +12,7 @@ const muted = withAlpha(colors.onSurface, 0.68);
 
 export default function SettingsPage() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
 
   return (
     <ScrollView
@@ -66,6 +68,19 @@ export default function SettingsPage() {
             </Text>
           </View>
         </View>
+        <Pressable
+          onPress={() => router.push("/ads-settings")}
+          style={({ pressed }) => [styles.row, styles.rowPressable, pressed && { opacity: 0.92 }]}
+        >
+          <MaterialIcons name="campaign" size={22} color={colors.primary} />
+          <View style={styles.rowBody}>
+            <Text style={typography.titleSm}>Ads</Text>
+            <Text style={[typography.bodyMd, { color: muted, fontSize: 13 }]}>
+              Banner & fullscreen placeholders, IDs, and prefetch behavior.
+            </Text>
+          </View>
+          <MaterialIcons name="chevron-right" size={22} color={muted} />
+        </Pressable>
       </View>
     </ScrollView>
   );
@@ -117,6 +132,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     borderRadius: radius.md,
     backgroundColor: colors.surfaceContainerLow,
+  },
+  rowPressable: {
+    marginTop: spacing.sm,
   },
   rowBody: {
     flex: 1,
