@@ -1,12 +1,17 @@
+import { ScreenSafeArea } from "@/src/components/ScreenSafeArea";
 import { useEditImages } from "@/src/context/edit-images-context";
+import { recordSavedFile } from "@/src/db/savedFileHistory";
+import { setPendingEditDocument } from "@/src/navigation/pendingEditDocument";
 import { electricCuratorTheme } from "@/src/theme/electric-curator";
+import { buildPdfFromImageUris } from "@/src/utils/imagesToPdf";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   Dimensions,
   Image,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,7 +25,6 @@ const screenWidth = Dimensions.get("window").width;
 const screenHeight = Dimensions.get("window").height;
 const imageSize = (screenWidth - spacing.md * 2) / 3 - 8;
 
-// Thresholds for auto-scroll
 const SCROLL_THRESHOLD = 150;
 const MAX_SCROLL_SPEED = 20;
 
@@ -35,12 +39,12 @@ export default function ConvertImagesPage() {
 
   const [gridData, setGridData] = useState<any[]>([]);
   const [isScrollEnabled, setIsScrollEnabled] = useState(true);
+  const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
     setGridData(images.map((img) => ({ ...img, key: img.id })));
   }, [images]);
 
-  // The "Smooth Engine": This runs independently of finger movement
   const startAutoScroll = () => {
     if (scrollTimer.current) return;
 
@@ -49,13 +53,11 @@ export default function ConvertImagesPage() {
 
       let speed = 0;
       if (lastMoveY.current < SCROLL_THRESHOLD) {
-        // Calculate variable speed: faster when closer to the top edge
         speed = -Math.min(
           MAX_SCROLL_SPEED,
           (SCROLL_THRESHOLD - lastMoveY.current) / 5,
         );
       } else if (lastMoveY.current > screenHeight - SCROLL_THRESHOLD) {
-        // Faster when closer to the bottom edge
         speed = Math.min(
           MAX_SCROLL_SPEED,
           (lastMoveY.current - (screenHeight - SCROLL_THRESHOLD)) / 5,
@@ -69,7 +71,7 @@ export default function ConvertImagesPage() {
           animated: false,
         });
       }
-    }, 16); // ~60fps smooth loop
+    }, 16);
   };
 
   const stopAutoScroll = () => {
@@ -96,6 +98,39 @@ export default function ConvertImagesPage() {
     setImages(newData);
   };
 
+  const handleGeneratePdf = async () => {
+    if (gridData.length === 0) {
+      Alert.alert(
+        "No images",
+        "Add images from Scan or Edit images before generating a PDF.",
+      );
+      return;
+    }
+    try {
+      setGenerating(true);
+      const uris = gridData.map(
+        (item) => (item.processedUri || item.uri) as string,
+      );
+      const { outputUri, fileName } = await buildPdfFromImageUris(uris);
+      void recordSavedFile({
+        uri: outputUri,
+        fileName,
+        mimeType: "application/pdf",
+        source: "images_to_pdf",
+      });
+      setPendingEditDocument({ uri: outputUri, name: fileName });
+      router.push("/edit-pdf");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      Alert.alert(
+        "Could not create PDF",
+        `${msg}${msg.includes("embed") || msg.includes("Expected") ? " Try JPEG or PNG images." : ""}`,
+      );
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const renderItem = (item: any) => (
     <View
       key={item.key}
@@ -109,7 +144,7 @@ export default function ConvertImagesPage() {
   );
 
   return (
-    <SafeAreaView style={styles.page}>
+    <ScreenSafeArea edges={["top", "left", "right", "bottom"]}>
       <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.title}>Convert Images</Text>
@@ -158,19 +193,26 @@ export default function ConvertImagesPage() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.button}
-            onPress={() => console.log("Finalizing...")}
+            style={[
+              styles.button,
+              (generating || gridData.length === 0) && styles.buttonDisabled,
+            ]}
+            onPress={() => void handleGeneratePdf()}
+            disabled={generating || gridData.length === 0}
           >
-            <Text style={styles.buttonText}>Generate Document</Text>
+            {generating ? (
+              <ActivityIndicator color={colors.onPrimary} />
+            ) : (
+              <Text style={styles.buttonText}>Generate PDF</Text>
+            )}
           </TouchableOpacity>
         </View>
       </View>
-    </SafeAreaView>
+    </ScreenSafeArea>
   );
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: colors.surface },
   container: { flex: 1, padding: spacing.md },
   header: { marginBottom: spacing.md },
   title: { ...typography.headlineMd, color: colors.onSurface },
@@ -221,6 +263,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     backgroundColor: colors.primary,
     alignItems: "center",
+    minHeight: 52,
+    justifyContent: "center",
+  },
+  buttonDisabled: {
+    opacity: 0.55,
   },
   buttonText: { color: colors.onPrimary, fontWeight: "700", fontSize: 16 },
 });

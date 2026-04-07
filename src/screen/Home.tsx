@@ -1,7 +1,12 @@
 import type { Href } from "expo-router";
 import { ScrollView, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { StaticBannerAd } from "@/src/ads/components/StaticBannerAd";
+import { useAdsOptional } from "@/src/ads/AdsProvider";
 import { HomeActionCard } from "@/src/components/home-action-card";
+import { ScreenSafeArea } from "@/src/components/ScreenSafeArea";
+import { FLOATING_TAB_BAR_PADDING } from "@/src/constants/layout";
 import type { IconSymbolName } from "@/src/components/icon-symbol";
 import { electricCuratorTheme } from "@/src/theme/electric-curator";
 
@@ -47,17 +52,22 @@ const actions: HomeAction[] = [
 ];
 
 export default function HomeScreen() {
+  const ads = useAdsOptional();
+  const showBanner = ads?.preferences.bannerEnabled ?? true;
+  const insets = useSafeAreaInsets();
+
   return (
-    <ScrollView
-      contentInsetAdjustmentBehavior="automatic"
-      style={{ flex: 1, backgroundColor: colors.surface }}
-      contentContainerStyle={{
-        paddingHorizontal: spacing.md,
-        paddingTop: spacing.md,
-        paddingBottom: 140,
-        gap: spacing.lg,
-      }}
-    >
+    <ScreenSafeArea edges={["top", "left", "right"]} style={{ flex: 1 }}>
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        style={{ flex: 1, backgroundColor: colors.surface }}
+        contentContainerStyle={{
+          paddingHorizontal: spacing.md,
+          paddingTop: spacing.sm,
+          paddingBottom: insets.bottom + FLOATING_TAB_BAR_PADDING,
+          gap: spacing.lg,
+        }}
+      >
       <View style={{ gap: spacing.xs }}>
         <Text selectable style={typography.labelMd}>
           Quick Actions
@@ -98,6 +108,14 @@ export default function HomeScreen() {
           ))}
         </View>
       </View>
+
+      {showBanner ? (
+        <View style={{ gap: spacing.xs }}>
+          <Text style={typography.labelMd}>Sponsored</Text>
+          <StaticBannerAd />
+        </View>
+      ) : null}
     </ScrollView>
+    </ScreenSafeArea>
   );
 }

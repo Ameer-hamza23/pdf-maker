@@ -1,15 +1,148 @@
-import { ElectricScreen } from "@/src/components/electric-screen";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { useRouter } from "expo-router";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { ScreenSafeArea } from "@/src/components/ScreenSafeArea";
+import { FLOATING_TAB_BAR_PADDING } from "@/src/constants/layout";
+import { staticUserProfile } from "@/src/data/staticUserProfile";
+import { electricCuratorTheme, withAlpha } from "@/src/theme/electric-curator";
+
+const { colors, spacing, radius, typography } = electricCuratorTheme;
+
+const muted = withAlpha(colors.onSurface, 0.68);
 
 export default function SettingsPage() {
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+
   return (
-    <ElectricScreen
-      eyebrow="Electric Curator"
-      headline="Tune the app without losing the calm."
-      description="Settings uses the same editorial hierarchy, rounded surfaces, and restrained emphasis so utility stays beautiful."
-      cardTitle="Settings Surface"
-      cardBody="Form-heavy screens can stay precise with ghost borders and layered cards."
-      chipLabel="Precision mode"
-      actionLabel="Manage Preferences"
-    />
+    <ScreenSafeArea edges={["top", "left", "right"]} style={styles.root}>
+    <ScrollView
+      style={{ flex: 1 }}
+      contentContainerStyle={{
+        paddingBottom: insets.bottom + FLOATING_TAB_BAR_PADDING,
+        paddingHorizontal: spacing.md,
+        paddingTop: spacing.sm,
+        gap: spacing.lg,
+      }}
+      contentInsetAdjustmentBehavior="automatic"
+    >
+      <View style={styles.intro}>
+        <Text style={typography.labelMd}>Settings</Text>
+        <Text style={typography.headlineMd}>Profile & account</Text>
+        <Text style={[typography.bodyMd, { color: muted }]}>
+          Account details below are static placeholders. Wire them to Firebase Auth / Firestore
+          when you are ready.
+        </Text>
+      </View>
+
+      <View style={styles.profileCard}>
+        <View style={styles.avatar}>
+          <MaterialIcons name="person" size={36} color={colors.primary} />
+        </View>
+        <View style={styles.profileText}>
+          <Text style={typography.titleSm}>{staticUserProfile.displayName}</Text>
+          <Text style={[typography.bodyMd, { color: muted }]}>{staticUserProfile.email}</Text>
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>Account</Text>
+        <View style={styles.row}>
+          <MaterialIcons name="login" size={22} color={colors.primary} />
+          <View style={styles.rowBody}>
+            <Text style={typography.titleSm}>Sign in</Text>
+            <Text style={[typography.bodyMd, { color: muted, fontSize: 13 }]}>
+              {staticUserProfile.accountHint}
+            </Text>
+          </View>
+          <MaterialIcons name="chevron-right" size={22} color={muted} />
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>App</Text>
+        <View style={styles.row}>
+          <MaterialIcons name="history" size={22} color={colors.primary} />
+          <View style={styles.rowBody}>
+            <Text style={typography.titleSm}>Save history</Text>
+            <Text style={[typography.bodyMd, { color: muted, fontSize: 13 }]}>
+              Stored on-device in SQLite (Files tab).
+            </Text>
+          </View>
+        </View>
+        <Pressable
+          onPress={() => router.push("/ads-settings")}
+          style={({ pressed }) => [styles.row, styles.rowPressable, pressed && { opacity: 0.92 }]}
+        >
+          <MaterialIcons name="campaign" size={22} color={colors.primary} />
+          <View style={styles.rowBody}>
+            <Text style={typography.titleSm}>Ads</Text>
+            <Text style={[typography.bodyMd, { color: muted, fontSize: 13 }]}>
+              Banner & fullscreen placeholders, IDs, and prefetch behavior.
+            </Text>
+          </View>
+          <MaterialIcons name="chevron-right" size={22} color={muted} />
+        </Pressable>
+      </View>
+    </ScrollView>
+    </ScreenSafeArea>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: colors.surface,
+  },
+  intro: {
+    gap: spacing.xs,
+  },
+  profileCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceContainerLowest,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: withAlpha(colors.outlineVariant, 0.45),
+  },
+  avatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.secondaryContainer,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  profileText: {
+    flex: 1,
+    gap: 4,
+  },
+  section: {
+    gap: spacing.sm,
+  },
+  sectionLabel: {
+    ...typography.labelMd,
+    fontSize: 11,
+    opacity: 0.85,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceContainerLow,
+  },
+  rowPressable: {
+    marginTop: spacing.sm,
+  },
+  rowBody: {
+    flex: 1,
+    gap: 4,
+  },
+});
