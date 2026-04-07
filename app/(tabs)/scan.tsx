@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { FLOATING_TAB_BAR_PADDING } from "@/src/constants/layout";
 import { QRResultModal } from "@/src/components/QRResultModal";
 import { useEditImages } from "@/src/context/edit-images-context";
 import { electricCuratorTheme } from "@/src/theme/electric-curator";
@@ -236,7 +237,11 @@ export default function ScanPage() {
       <View
         style={[
           styles.bottomRow,
-          { paddingBottom: Math.max(insets.bottom, spacing.sm) },
+          {
+            paddingBottom:
+              Math.max(insets.bottom, spacing.sm) +
+              FLOATING_TAB_BAR_PADDING * 0.65,
+          },
         ]}
       >
         <TouchableOpacity style={styles.galleryButton} onPress={pickImage}>

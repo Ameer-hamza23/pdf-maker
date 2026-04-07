@@ -3,6 +3,8 @@ import { useRouter } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { ScreenSafeArea } from "@/src/components/ScreenSafeArea";
+import { FLOATING_TAB_BAR_PADDING } from "@/src/constants/layout";
 import { staticUserProfile } from "@/src/data/staticUserProfile";
 import { electricCuratorTheme, withAlpha } from "@/src/theme/electric-curator";
 
@@ -15,11 +17,13 @@ export default function SettingsPage() {
   const router = useRouter();
 
   return (
+    <ScreenSafeArea edges={["top", "left", "right"]} style={styles.root}>
     <ScrollView
-      style={[styles.root, { paddingTop: insets.top + spacing.sm }]}
+      style={{ flex: 1 }}
       contentContainerStyle={{
-        paddingBottom: insets.bottom + spacing.xl,
+        paddingBottom: insets.bottom + FLOATING_TAB_BAR_PADDING,
         paddingHorizontal: spacing.md,
+        paddingTop: spacing.sm,
         gap: spacing.lg,
       }}
       contentInsetAdjustmentBehavior="automatic"
@@ -83,6 +87,7 @@ export default function SettingsPage() {
         </Pressable>
       </View>
     </ScrollView>
+    </ScreenSafeArea>
   );
 }
 

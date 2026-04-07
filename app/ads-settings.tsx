@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAds } from "@/src/ads/AdsProvider";
+import { shouldShowInterstitialForPath } from "@/src/ads/adRoutePolicy";
 import { getResolvedAdConfig, maskId } from "@/src/ads/config/resolveAdConfig";
 import { electricCuratorTheme, withAlpha } from "@/src/theme/electric-curator";
 
@@ -26,6 +27,7 @@ export default function AdsSettingsScreen() {
     setPreferences,
     isOnline,
     bundleReady,
+    activePathname,
     showInterstitialPreview,
   } = useAds();
 
@@ -71,6 +73,14 @@ export default function AdsSettingsScreen() {
           </Text>
           <Text style={[styles.statusHint, { marginTop: spacing.xs }]}>
             When online, a static “ad bundle” is marked ready (simulating prefetch).
+          </Text>
+          <Text style={[styles.statusLabel, { marginTop: spacing.md }]}>Active route</Text>
+          <Text style={styles.routeValue} numberOfLines={2} selectable>
+            {activePathname || "—"}
+          </Text>
+          <Text style={[styles.statusHint, { marginTop: spacing.xs }]}>
+            Fullscreen ads only on safe screens (not editor / camera). Current:{" "}
+            {shouldShowInterstitialForPath(activePathname) ? "allowed" : "blocked"}
           </Text>
           <Text style={[styles.statusLabel, { marginTop: spacing.md }]}>Bundle ready</Text>
           <Text style={styles.statusValue}>{bundleReady ? "Yes" : "Not yet"}</Text>
@@ -207,6 +217,12 @@ const styles = StyleSheet.create({
   statusValue: {
     ...typography.titleSm,
     fontSize: 16,
+  },
+  routeValue: {
+    ...typography.bodyMd,
+    fontSize: 13,
+    fontFamily: "monospace",
+    color: colors.onSurface,
   },
   statusHint: {
     ...typography.bodyMd,

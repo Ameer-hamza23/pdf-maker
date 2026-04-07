@@ -16,6 +16,7 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { FLOATING_TAB_BAR_PADDING } from "@/src/constants/layout";
 import {
   deleteSavedFile,
   listSavedFiles,
@@ -160,7 +161,10 @@ export default function FilesPage() {
     <View
       style={[
         styles.root,
-        { paddingTop: insets.top + spacing.sm, paddingBottom: insets.bottom + spacing.lg },
+        {
+          paddingTop: insets.top + spacing.sm,
+          paddingBottom: insets.bottom + FLOATING_TAB_BAR_PADDING,
+        },
       ]}
     >
       <View style={styles.headerBlock}>
