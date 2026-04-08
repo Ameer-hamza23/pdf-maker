@@ -15,6 +15,7 @@ import { AppState } from "react-native";
 import { shouldShowInterstitialForPath } from "@/src/ads/adRoutePolicy";
 import { StaticInterstitialAd } from "@/src/ads/components/StaticInterstitialAd";
 import { useAdNetwork } from "@/src/ads/hooks/useAdNetwork";
+import { useInterstitialController } from "@/src/ads/hooks/useInterstitialController";
 import {
   canShowInterstitialByInterval,
   defaultAdsPreferences,
@@ -25,7 +26,6 @@ import {
 } from "@/src/ads/storage/adPreferences";
 
 type TryInterstitialOptions = {
-  /** Settings preview / tests — ignores route allowlist. */
   skipRouteCheck?: boolean;
 };
 
@@ -34,8 +34,11 @@ type AdsContextValue = {
   prefsLoaded: boolean;
   setPreferences: (patch: Partial<AdsPreferences>) => Promise<void>;
   isOnline: boolean | null;
+  sdkReady: boolean;
   bundleReady: boolean;
   activePathname: string;
+  isNativeAdMob: boolean;
+  adError: string | null;
   showInterstitialPreview: () => void;
   dismissInterstitialPreview: () => void;
   interstitialVisible: boolean;
@@ -60,7 +63,8 @@ async function tryOpenInterstitial(
   bundleReady: boolean,
   isOnline: boolean | null,
   pathname: string,
-  setVisible: (v: boolean) => void,
+  showInterstitial: () => boolean,
+  requestInterstitial: () => void,
   pathWhenAdRef: { current: string | null },
   options?: TryInterstitialOptions,
 ): Promise<boolean> {
@@ -73,12 +77,25 @@ async function tryOpenInterstitial(
   if (preferences.prefetchWhenOnline && !bundleReady && isOnline === false) {
     return false;
   }
-  const allowed = await canShowInterstitialByInterval();
-  if (!allowed) {
+  if (!bundleReady) {
+    requestInterstitial();
     return false;
   }
+
+  const allowed = await canShowInterstitialByInterval();
+  if (!allowed) {
+    requestInterstitial();
+    return false;
+  }
+
+  const opened = showInterstitial();
+  if (!opened) {
+    pathWhenAdRef.current = null;
+    requestInterstitial();
+    return false;
+  }
+
   pathWhenAdRef.current = pathname;
-  setVisible(true);
   await recordInterstitialShown();
   return true;
 }
@@ -98,15 +115,11 @@ export function AdsProvider({ children }: AdsProviderProps) {
     defaultAdsPreferences,
   );
   const [prefsLoaded, setPrefsLoaded] = useState(false);
-  const [interstitialVisible, setInterstitialVisible] = useState(false);
   const appStateRef = useRef(AppState.currentState);
-  /** Set only after we run the one-time cold-start attempt on an allowed route. */
   const coldStartDoneRef = useRef(false);
   const pathWhenInterstitialShownRef = useRef<string | null>(null);
 
-  const { isOnline, bundleReady } = useAdNetwork(
-    preferences.prefetchWhenOnline,
-  );
+  const { isOnline } = useAdNetwork();
 
   useEffect(() => {
     void loadAdsPreferences().then((p) => {
@@ -123,10 +136,11 @@ export function AdsProvider({ children }: AdsProviderProps) {
   const restoreRouteAfterAd = useCallback(() => {
     const target = pathWhenInterstitialShownRef.current;
     pathWhenInterstitialShownRef.current = null;
-    setInterstitialVisible(false);
+
     if (!target) {
       return;
     }
+
     requestAnimationFrame(() => {
       if (activePathname !== target) {
         router.replace(target as Href);
@@ -134,14 +148,35 @@ export function AdsProvider({ children }: AdsProviderProps) {
     });
   }, [activePathname, router]);
 
+  const {
+    sdkReady,
+    interstitialReady: bundleReady,
+    interstitialVisible,
+    adError,
+    isNativeAdMob,
+    showInterstitial,
+    dismissInterstitial,
+    requestInterstitial,
+  } = useInterstitialController({
+    enabled: preferences.interstitialEnabled,
+    prefetchWhenOnline: preferences.prefetchWhenOnline,
+    isOnline,
+    onClose: restoreRouteAfterAd,
+  });
+
   const showInterstitialPreview = useCallback(() => {
+    const shown = showInterstitial();
+    if (!shown) {
+      requestInterstitial();
+      return;
+    }
+
     pathWhenInterstitialShownRef.current = activePathname;
-    setInterstitialVisible(true);
-  }, [activePathname]);
+  }, [activePathname, requestInterstitial, showInterstitial]);
 
   const dismissInterstitialPreview = useCallback(() => {
-    restoreRouteAfterAd();
-  }, [restoreRouteAfterAd]);
+    dismissInterstitial();
+  }, [dismissInterstitial]);
 
   useEffect(() => {
     if (!prefsLoaded || coldStartDoneRef.current) {
@@ -156,35 +191,56 @@ export function AdsProvider({ children }: AdsProviderProps) {
     if (!shouldShowInterstitialForPath(activePathname)) {
       return;
     }
+
     coldStartDoneRef.current = true;
+
     void tryOpenInterstitial(
       preferences,
       bundleReady,
       isOnline,
       activePathname,
-      setInterstitialVisible,
+      showInterstitial,
+      requestInterstitial,
       pathWhenInterstitialShownRef,
     );
-  }, [prefsLoaded, preferences, bundleReady, isOnline, activePathname]);
+  }, [
+    activePathname,
+    bundleReady,
+    isOnline,
+    prefsLoaded,
+    preferences,
+    requestInterstitial,
+    showInterstitial,
+  ]);
 
   useEffect(() => {
     const sub = AppState.addEventListener("change", (next) => {
       const prev = appStateRef.current;
       appStateRef.current = next;
       const wasBackground = /inactive|background/.test(prev);
+
       if (next === "active" && wasBackground && activePathname) {
         void tryOpenInterstitial(
           preferences,
           bundleReady,
           isOnline,
           activePathname,
-          setInterstitialVisible,
+          showInterstitial,
+          requestInterstitial,
           pathWhenInterstitialShownRef,
         );
       }
     });
+
     return () => sub.remove();
-  }, [preferences, bundleReady, isOnline, activePathname]);
+  }, [
+    activePathname,
+    bundleReady,
+    isOnline,
+    preferences,
+    requestInterstitial,
+    showInterstitial,
+  ]);
 
   const value = useMemo<AdsContextValue>(
     () => ({
@@ -192,8 +248,11 @@ export function AdsProvider({ children }: AdsProviderProps) {
       prefsLoaded,
       setPreferences,
       isOnline,
+      sdkReady,
       bundleReady,
       activePathname,
+      isNativeAdMob,
+      adError,
       showInterstitialPreview,
       dismissInterstitialPreview,
       interstitialVisible,
@@ -203,8 +262,11 @@ export function AdsProvider({ children }: AdsProviderProps) {
       prefsLoaded,
       setPreferences,
       isOnline,
+      sdkReady,
       bundleReady,
       activePathname,
+      isNativeAdMob,
+      adError,
       showInterstitialPreview,
       dismissInterstitialPreview,
       interstitialVisible,
@@ -214,11 +276,13 @@ export function AdsProvider({ children }: AdsProviderProps) {
   return (
     <AdsContext.Provider value={value}>
       {children}
-      <StaticInterstitialAd
-        visible={interstitialVisible}
-        onClose={restoreRouteAfterAd}
-        onLearnMore={restoreRouteAfterAd}
-      />
+      {!isNativeAdMob ? (
+        <StaticInterstitialAd
+          visible={interstitialVisible}
+          onClose={dismissInterstitialPreview}
+          onLearnMore={dismissInterstitialPreview}
+        />
+      ) : null}
     </AdsContext.Provider>
   );
 }

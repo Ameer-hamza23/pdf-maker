@@ -13,7 +13,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAds } from "@/src/ads/AdsProvider";
 import { shouldShowInterstitialForPath } from "@/src/ads/adRoutePolicy";
-import { getResolvedAdConfig, maskId } from "@/src/ads/config/resolveAdConfig";
+import { defaultAdUnitIds } from "@/src/ads/config/adUnitIds";
+import {
+  getConfiguredTestDeviceIds,
+  getResolvedAdConfig,
+  isUsingGoogleTestUnits,
+  maskId,
+} from "@/src/ads/config/resolveAdConfig";
 import { electricCuratorTheme, withAlpha } from "@/src/theme/electric-curator";
 
 const { colors, spacing, radius, typography } = electricCuratorTheme;
@@ -26,12 +32,38 @@ export default function AdsSettingsScreen() {
     preferences,
     setPreferences,
     isOnline,
+    sdkReady,
     bundleReady,
     activePathname,
+    isNativeAdMob,
+    adError,
     showInterstitialPreview,
   } = useAds();
 
   const cfg = useMemo(() => getResolvedAdConfig(), []);
+  const testDeviceIds = useMemo(() => getConfiguredTestDeviceIds(), []);
+  const usingGoogleTestUnits = useMemo(() => isUsingGoogleTestUnits(), []);
+  const runtimeMode = useMemo(() => {
+    if (usingGoogleTestUnits) {
+      return "Google demo units";
+    }
+    if (testDeviceIds.length > 0) {
+      return "Real units + test devices";
+    }
+    return "Real units";
+  }, [testDeviceIds.length, usingGoogleTestUnits]);
+  const testDevicePreview = useMemo(
+    () =>
+      testDeviceIds.length > 0
+        ? testDeviceIds
+            .map((id) => (id === "EMULATOR" ? id : maskId(id)))
+            .join(", ")
+        : "None",
+    [testDeviceIds],
+  );
+  const bannerUsesFallbackId = cfg.bannerUnitId === defaultAdUnitIds.bannerUnitId;
+  const interstitialUsesFallbackId =
+    cfg.interstitialUnitId === defaultAdUnitIds.interstitialUnitId;
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -56,8 +88,8 @@ export default function AdsSettingsScreen() {
         }}
       >
         <Text style={[typography.bodyMd, { color: muted }]}>
-          Static previews stand in for AdMob until you add the Google Mobile Ads SDK. IDs below
-          resolve from{" "}
+          Native AdMob is enabled for Android and iOS builds. Expo Go will not load this SDK, so
+          use a development build or release build when testing ads. IDs below resolve from{" "}
           <Text style={{ fontWeight: "700" }}>.env</Text> or{" "}
           <Text style={{ fontWeight: "700" }}>src/ads/config/adUnitIds.ts</Text>.
         </Text>
@@ -65,25 +97,41 @@ export default function AdsSettingsScreen() {
         <View style={styles.statusCard}>
           <Text style={styles.statusLabel}>Network</Text>
           <Text style={styles.statusValue}>
-            {isOnline === null
-              ? "Checking…"
-              : isOnline
-                ? "Online"
-                : "Offline"}
+            {isOnline === null ? "Checking..." : isOnline ? "Online" : "Offline"}
+          </Text>
+
+          <Text style={[styles.statusLabel, { marginTop: spacing.md }]}>SDK</Text>
+          <Text style={styles.statusValue}>
+            {isNativeAdMob ? (sdkReady ? "Ready" : "Starting") : "Web fallback"}
           </Text>
           <Text style={[styles.statusHint, { marginTop: spacing.xs }]}>
-            When online, a static “ad bundle” is marked ready (simulating prefetch).
+            App IDs are compiled into the native build through{" "}
+            <Text style={{ fontWeight: "700" }}>app.config.js</Text>.
           </Text>
+          <Text style={[styles.statusHint, { marginTop: spacing.xs }]}>
+            Runtime mode: <Text style={{ fontWeight: "700" }}>{runtimeMode}</Text>
+          </Text>
+
           <Text style={[styles.statusLabel, { marginTop: spacing.md }]}>Active route</Text>
           <Text style={styles.routeValue} numberOfLines={2} selectable>
-            {activePathname || "—"}
+            {activePathname || "-"}
           </Text>
           <Text style={[styles.statusHint, { marginTop: spacing.xs }]}>
             Fullscreen ads only on safe screens (not editor / camera). Current:{" "}
             {shouldShowInterstitialForPath(activePathname) ? "allowed" : "blocked"}
           </Text>
-          <Text style={[styles.statusLabel, { marginTop: spacing.md }]}>Bundle ready</Text>
-          <Text style={styles.statusValue}>{bundleReady ? "Yes" : "Not yet"}</Text>
+
+          <Text style={[styles.statusLabel, { marginTop: spacing.md }]}>Interstitial</Text>
+          <Text style={styles.statusValue}>{bundleReady ? "Loaded" : "Loading"}</Text>
+          <Text style={[styles.statusHint, { marginTop: spacing.xs }]}>
+            Test devices: <Text style={{ fontWeight: "700" }}>{testDevicePreview}</Text>
+          </Text>
+
+          {adError ? (
+            <Text style={[styles.statusHint, { marginTop: spacing.sm, color: "#b91c1c" }]}>
+              Last ad error: {adError}
+            </Text>
+          ) : null}
         </View>
 
         <Text style={typography.labelMd}>Placement</Text>
@@ -97,7 +145,7 @@ export default function AdsSettingsScreen() {
           </View>
           <Switch
             value={preferences.bannerEnabled}
-            onValueChange={(v) => void setPreferences({ bannerEnabled: v })}
+            onValueChange={(value) => void setPreferences({ bannerEnabled: value })}
             trackColor={{ false: colors.outlineVariant, true: colors.primaryContainer }}
             thumbColor={preferences.bannerEnabled ? colors.primary : "#f4f4f5"}
           />
@@ -107,12 +155,14 @@ export default function AdsSettingsScreen() {
           <View style={styles.rowText}>
             <Text style={typography.titleSm}>Fullscreen ads</Text>
             <Text style={[typography.bodyMd, { color: muted, fontSize: 13 }]}>
-              Enable interstitial-style placements (static preview for now).
+              Enable interstitial placements on safe screens.
             </Text>
           </View>
           <Switch
             value={preferences.interstitialEnabled}
-            onValueChange={(v) => void setPreferences({ interstitialEnabled: v })}
+            onValueChange={(value) =>
+              void setPreferences({ interstitialEnabled: value })
+            }
             trackColor={{ false: colors.outlineVariant, true: colors.primaryContainer }}
             thumbColor={preferences.interstitialEnabled ? colors.primary : "#f4f4f5"}
           />
@@ -127,7 +177,9 @@ export default function AdsSettingsScreen() {
           </View>
           <Switch
             value={preferences.interstitialOnOpen}
-            onValueChange={(v) => void setPreferences({ interstitialOnOpen: v })}
+            onValueChange={(value) =>
+              void setPreferences({ interstitialOnOpen: value })
+            }
             trackColor={{ false: colors.outlineVariant, true: colors.primaryContainer }}
             thumbColor={preferences.interstitialOnOpen ? colors.primary : "#f4f4f5"}
             disabled={!preferences.interstitialEnabled}
@@ -138,12 +190,14 @@ export default function AdsSettingsScreen() {
           <View style={styles.rowText}>
             <Text style={typography.titleSm}>Prefetch when online</Text>
             <Text style={[typography.bodyMd, { color: muted, fontSize: 13 }]}>
-              Mark ads as ready while connected (recommended before showing interstitials).
+              Load ads while connected so interstitials are ready sooner.
             </Text>
           </View>
           <Switch
             value={preferences.prefetchWhenOnline}
-            onValueChange={(v) => void setPreferences({ prefetchWhenOnline: v })}
+            onValueChange={(value) =>
+              void setPreferences({ prefetchWhenOnline: value })
+            }
             trackColor={{ false: colors.outlineVariant, true: colors.primaryContainer }}
             thumbColor={preferences.prefetchWhenOnline ? colors.primary : "#f4f4f5"}
           />
@@ -155,8 +209,14 @@ export default function AdsSettingsScreen() {
           onPress={showInterstitialPreview}
         >
           <MaterialIcons name="fullscreen" size={20} color={colors.onPrimary} />
-          <Text style={styles.previewBtnText}>Show fullscreen ad (static)</Text>
+          <Text style={styles.previewBtnText}>
+            {isNativeAdMob ? "Show fullscreen ad" : "Show fullscreen preview"}
+          </Text>
         </Pressable>
+        <Text style={[typography.bodyMd, { color: muted, fontSize: 13 }]}>
+          If nothing opens immediately, the interstitial is still warming up. Tap once, wait a
+          moment, then try again.
+        </Text>
 
         <Text style={typography.labelMd}>Resolved IDs (masked)</Text>
         <View style={styles.idCard}>
@@ -164,6 +224,14 @@ export default function AdsSettingsScreen() {
           <IdLine label="App ID (Android)" value={maskId(cfg.admobAppIdAndroid)} />
           <IdLine label="Banner unit" value={maskId(cfg.bannerUnitId)} />
           <IdLine label="Interstitial unit" value={maskId(cfg.interstitialUnitId)} />
+          <IdLine
+            label="Banner source"
+            value={bannerUsesFallbackId ? "Google test ID" : "Configured in .env"}
+          />
+          <IdLine
+            label="Interstitial source"
+            value={interstitialUsesFallbackId ? "Google test ID" : "Configured in .env"}
+          />
         </View>
       </ScrollView>
     </View>
