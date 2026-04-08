@@ -22,7 +22,13 @@ export function AdBanner({ visible = true }: Props) {
   }
 
   if (!googleMobileAds) {
-    return <StaticBannerAd visible={visible} />;
+    return (
+      <View style={[styles.wrap, { padding: spacing.md }]}>
+        <Text style={styles.hint}>
+          ⚠️ AdMob native module not found. Real ads will only show in a Custom Dev Client, not inside Expo Go.
+        </Text>
+      </View>
+    );
   }
 
   const { BannerAd, BannerAdSize } = googleMobileAds;
